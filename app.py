@@ -9,10 +9,16 @@ model_path = hf_hub_download(repo_id='adeshkin/silero-models-v5-cis-base-nostres
 
 model = torch.package.PackageImporter(model_path).load_pickle("tts_models", "model")
 model.to(device)
+MAX_TEXT_LEN = 300
 
 
 def text_to_speech(text, speaker, sample_rate=48000):
     if len(text) == 0:
+        gr.Warning("Введите текст")
+        return None
+
+    if len(text) > MAX_TEXT_LEN:
+        gr.Warning(f"Текст длиннее {MAX_TEXT_LEN} символов — сократите его.")
         return None
 
     audio_tensor = model.apply_tts(text=text,
@@ -23,12 +29,13 @@ def text_to_speech(text, speaker, sample_rate=48000):
 
     return sample_rate, audio_np
 
+
 demo = gr.Interface(
     fn=text_to_speech,
     inputs=[
         gr.Textbox(
             label="Введите текст для озвучки",
-            # lines=3,
+            lines=3,
             placeholder="Чылтыстар кемни? – перініп ала сурған идінҷек."
         ),
         gr.Radio(
