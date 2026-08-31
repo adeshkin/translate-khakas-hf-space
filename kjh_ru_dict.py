@@ -33,7 +33,7 @@ def format_article(articles):
     if len(articles) == 0:
         return 'Нет слова'
 
-    text = '\n\n---\n\n'.join(articles)
+    text = '\n\n---\n\n'.join(articles).replace('<і>', '<i>').replace('</і>', '</i>')
 
     return text
 
@@ -89,7 +89,9 @@ with gr.Blocks(title="Словарь") as dict_interface:
                 clear_btn = gr.Button("Очистить")
 
         with gr.Column():
-            dict_output = gr.Markdown(label="Результат")
+            dict_output = gr.Markdown(label="Результат",
+                                      container=True,
+                                      padding=True)
 
     submit_btn.click(fn=find_word_dict,
                      inputs=[text_input, lang_input],

@@ -104,7 +104,9 @@ with gr.Blocks(title="Корпус") as corpus_interface:
                 clear_btn = gr.Button("Очистить")
 
         with gr.Column():
-            corpus_output = gr.Markdown(label="Результат")
+            corpus_output = gr.Markdown(label="Результат",
+                                        container=True,
+                                        padding=True)
 
     submit_btn.click(fn=find_word_corpus,
                      inputs=[text_input, lang_input],
