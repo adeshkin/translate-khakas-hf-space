@@ -2,6 +2,7 @@ import torch
 from huggingface_hub import hf_hub_download
 import gradio as gr
 import random
+import numpy as np
 
 from corpus import get_random_kjh_example
 
@@ -37,9 +38,11 @@ def text_to_speech(text, speaker):
                                    speaker=model_speaker,
                                    sample_rate=SAMPLE_RATE)
 
-    audio_np = audio_tensor.squeeze().cpu().numpy()
+    data = audio_tensor.squeeze().cpu().numpy()
+    data = np.clip(data, -1.0, 1.0)
+    data = np.round(data * 32767).astype(np.int16)
 
-    return SAMPLE_RATE, audio_np
+    return SAMPLE_RATE, data
 
 
 def random_text_to_speech():
