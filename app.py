@@ -20,6 +20,8 @@ _LOGO_SVG_ENCODED = load_svg_encoded("logo.svg")
 
 CUSTOM_CSS = f"""
 .gradio-container {{
+    --input-text-size: 18px;
+
     background-image: url('data:image/svg+xml,{_BACK_SVG_ENCODED}');
     background-repeat: no-repeat;
     background-position: max(0px, 50%) bottom;
@@ -46,6 +48,13 @@ CUSTOM_CSS = f"""
     background-size: contain;
 }}
 
+.gradio-container .tab-wrapper button {{
+    font-size: 20px;
+}}
+
+.gradio-container .prose:not(:has(h1)) {{
+    font-size: 19px;
+}}
 
 .tk-footer {{
     display: flex;
@@ -86,6 +95,10 @@ FOOTER_HTML = f"""
 demo = gr.TabbedInterface([dict_interface, corpus_interface, tts_interface],
                           [dict_interface.title, corpus_interface.title, tts_interface.title],
                           title='TranslateKhak')
+# hello_world = gr.Interface(lambda name: "Hello " + name, "text", "text", api_name="predict", description='hello description')
+# bye_world = gr.Interface(lambda name: "Bye " + name, "text", "text", api_name="predict")
+# chat = gr.ChatInterface(lambda *args: "Hello " + args[0], api_name="chat")
+# demo = gr.TabbedInterface([hello_world, bye_world, chat], ["Hello World", "Bye World", "Chat"], title='TranslateKhak')
 
 with demo:
     gr.HTML(FOOTER_HTML)

@@ -85,7 +85,7 @@ def get_random_word_corpus():
 
 
 with gr.Blocks(title="Корпус") as corpus_interface:
-    gr.Markdown("Корпус")
+    gr.Markdown("## Корпус")
 
     with gr.Row():
         with gr.Column():
