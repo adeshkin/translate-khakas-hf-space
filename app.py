@@ -12,7 +12,7 @@ model.to(device)
 
 
 def text_to_speech(text, speaker, sample_rate=48000):
-    if len(text):
+    if len(text) == 0:
         return None
 
     audio_tensor = model.apply_tts(text=text,
