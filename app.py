@@ -25,6 +25,24 @@ CUSTOM_CSS = f"""
     background-size: auto 65vh;
     background-attachment: fixed;
 }}
+
+.gradio-container h1 {{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}}
+
+.gradio-container h1::before {{
+    content: '';
+    flex-shrink: 0;
+    width: 1.2em;
+    height: 1.2em;
+    background-image: url('data:image/svg+xml,{_LOGO_SVG_ENCODED}');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}}
 """
 
 demo = gr.TabbedInterface([dict_interface, corpus_interface, tts_interface],
