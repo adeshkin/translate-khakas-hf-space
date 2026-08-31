@@ -1,5 +1,4 @@
 import gradio as gr
-
 import torch
 from huggingface_hub import hf_hub_download
 
@@ -9,16 +8,15 @@ model_path = hf_hub_download(repo_id='adeshkin/silero-models-v5-cis-base-nostres
 
 model = torch.package.PackageImporter(model_path).load_pickle("tts_models", "model")
 model.to(device)
-MAX_TEXT_LEN = 300
 
 
-def text_to_speech(text, speaker, sample_rate=48000):
+def text_to_speech(text, speaker, sample_rate=48000, max_text_len=300):
     if len(text) == 0:
         gr.Warning("Введите текст")
         return None
 
-    if len(text) > MAX_TEXT_LEN:
-        gr.Warning(f"Текст длиннее {MAX_TEXT_LEN} символов — сократите его.")
+    if len(text) > max_text_len:
+        gr.Warning(f"Длина текста {len(text)} > {max_text_len}")
         return None
 
     audio_tensor = model.apply_tts(text=text,
