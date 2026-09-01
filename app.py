@@ -81,7 +81,7 @@ CUSTOM_CSS = f"""
 .social-link {{
     display: inline-flex;
     align-items: flex-start;
-    gap: 0.4rem;
+    gap: 0.15rem;
     color: var(--body-text-color-subdued) !important;
     text-decoration: none !important;
     text-align: left;
@@ -105,7 +105,7 @@ VK_URL = "https://vk.ru/translate_khakas"
 
 FOOTER_HTML = f"""
 <div class="tk-footer">
-  <a href="{VK_URL}" class="social-link social-link_vk" title="Сообщество ВКонтакте" target="_blank" rel="noopener noreferrer"><svg xmlns="http://www.w3.org/2000/svg" fill="#0077ff" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M1.406 1.406C0 2.812 0 5.075 0 9.6v.8c0 4.525 0 6.788 1.406 8.194S5.075 20 9.6 20h.8c4.525 0 6.788 0 8.194-1.406S20 14.925 20 10.4v-.8c0-4.525 0-6.788-1.406-8.194S14.925 0 10.4 0h-.8C5.075 0 2.812 0 1.406 1.406m1.969 4.678c.108 5.2 2.708 8.325 7.266 8.325h.259v-2.976c1.675.167 2.941 1.392 3.45 2.976h2.366c-.65-2.367-2.358-3.675-3.425-4.175 1.067-.617 2.567-2.117 2.925-4.15h-2.15c-.466 1.65-1.85 3.15-3.166 3.291V6.084H8.75v5.766c-1.334-.333-3.017-1.95-3.092-5.766z" clip-rule="evenodd"></path></svg>TranslateKhak | Василий Адёшкин</a>
+  <a href="{VK_URL}" class="social-link social-link_vk" title="Сообщество ВКонтакте" target="_blank" rel="noopener noreferrer"><svg xmlns="http://www.w3.org/2000/svg" fill="#0077ff" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M1.406 1.406C0 2.812 0 5.075 0 9.6v.8c0 4.525 0 6.788 1.406 8.194S5.075 20 9.6 20h.8c4.525 0 6.788 0 8.194-1.406S20 14.925 20 10.4v-.8c0-4.525 0-6.788-1.406-8.194S14.925 0 10.4 0h-.8C5.075 0 2.812 0 1.406 1.406m1.969 4.678c.108 5.2 2.708 8.325 7.266 8.325h.259v-2.976c1.675.167 2.941 1.392 3.45 2.976h2.366c-.65-2.367-2.358-3.675-3.425-4.175 1.067-.617 2.567-2.117 2.925-4.15h-2.15c-.466 1.65-1.85 3.15-3.166 3.291V6.084H8.75v5.766c-1.334-.333-3.017-1.95-3.092-5.766z" clip-rule="evenodd"></path></svg>ВКонтакте</a>
 </div>
 """
 
