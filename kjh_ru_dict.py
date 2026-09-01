@@ -85,7 +85,7 @@ with gr.Blocks(title="Словарь") as dict_interface:
                                     placeholder="Введите слово")
             with gr.Row(elem_classes="khakas-letters"):
                 for letter in "іғңҷӧӱ":
-                    letter_btn = gr.Button(letter, size="sm")
+                    letter_btn = gr.Button(letter, size="sm", scale=0)
                     letter_btn.click(insert_letter(letter), inputs=text_input, outputs=text_input)
 
             lang_input = gr.Radio(
