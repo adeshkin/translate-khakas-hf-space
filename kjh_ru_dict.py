@@ -128,7 +128,7 @@ with gr.Blocks(title="Словарь") as dict_interface:
             dict_output = gr.Markdown(label="Результат",
                                       container=True,
                                       padding=True,
-                                      elem_classes="dict-output")
+                                      elem_classes="result-output")
 
     submit_btn.click(fn=find_word_dict,
                      inputs=[text_input, lang_input],

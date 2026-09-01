@@ -57,11 +57,16 @@ CUSTOM_CSS = f"""
     font-size: 19px;
 }}
 
-.dict-output p {{
+.result-output p {{
     margin: 0;
 }}
 
-.dict-output hr {{
+/* Оригинал и перевод внутри примера: небольшой отступ вместо абзацного. */
+.result-output p + p {{
+    margin-top: 0.35rem;
+}}
+
+.result-output hr {{
     margin: 0.6rem 0;
 }}
 

@@ -198,7 +198,8 @@ with gr.Blocks(title="Корпус") as corpus_interface:
         with gr.Column():
             corpus_output = gr.Markdown(label="Результат",
                                         container=True,
-                                        padding=True)
+                                        padding=True,
+                                        elem_classes="result-output")
 
     submit_btn.click(fn=find_word_corpus,
                      inputs=[text_input, lang_input],
