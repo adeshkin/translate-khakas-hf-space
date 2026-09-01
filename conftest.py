@@ -6,6 +6,7 @@
 Заглушки ставятся до того, как pytest импортирует тестовые модули.
 """
 
+import hashlib
 import sys
 import types
 
@@ -42,11 +43,38 @@ DICT_HF_ID = "adeshkin/khakas-russian-dict"
 CORPUS_HF_ID = "adeshkin/khakas-russian-parallel-corpus"
 
 
+class FakeDataset:
+    """Минимальная замена `datasets.Dataset`.
+
+    Приложение читает датасет двумя способами: обходом строк и выборкой колонки
+    целиком (`ds['kjh']`), поэтому заглушка поддерживает оба.
+    """
+
+    def __init__(self, rows):
+        self._rows = [dict(row) for row in rows]
+
+    def __len__(self):
+        return len(self._rows)
+
+    def __iter__(self):
+        return iter(self._rows)
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return [row[key] for row in self._rows]
+
+        return self._rows[key]
+
+    @property
+    def _fingerprint(self):
+        return hashlib.sha1(repr(self._rows).encode()).hexdigest()[:16]
+
+
 def _load_dataset(path, split=None, **kwargs):
     if path == DICT_HF_ID:
-        return [dict(row) for row in DICT_ROWS]
+        return FakeDataset(DICT_ROWS)
     if path == CORPUS_HF_ID:
-        return [dict(row) for row in CORPUS_ROWS]
+        return FakeDataset(CORPUS_ROWS)
     raise AssertionError(f"Неизвестный датасет в тестах: {path}")
 
 

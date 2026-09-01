@@ -1,30 +1,42 @@
+import os
+
 import pytest
 
 import corpus
 from corpus import (
+    build_index,
     find_word_corpus,
     format_example,
     get_random_kjh_example,
     get_random_word_corpus,
-    prepare_corpus,
+    quote_phrase,
 )
 
 
-class TestPrepareCorpus:
-    def test_collects_lowercased_words_per_language(self):
-        lang2words = prepare_corpus()
+class TestBuildIndex:
+    def test_indexes_every_pair(self):
+        rows = corpus.get_connection().execute('SELECT count(*) FROM corpus').fetchone()
 
-        assert set(lang2words) == {"kjh", "ru"}
-        assert "книга" in lang2words["kjh"]
-        assert "мин" in lang2words["kjh"]
-        assert "абакане" in lang2words["ru"]
+        assert rows[0] == len(corpus.ds)
 
-    def test_skips_punctuation_and_non_alpha_tokens(self):
-        lang2words = prepare_corpus()
+    def test_rowids_are_contiguous(self):
+        # случайный пример выбирается обращением к rowid напрямую
+        bounds = corpus.get_connection().execute(
+            'SELECT min(rowid), max(rowid) FROM corpus').fetchone()
 
-        for words in lang2words.values():
-            assert all(word.isalpha() for word in words)
-            assert "." not in words
+        assert bounds == (1, len(corpus.ds))
+
+    def test_reuses_prepared_database(self):
+        assert os.path.exists(corpus.db_path)
+        assert build_index() == corpus.db_path
+
+
+class TestQuotePhrase:
+    def test_wraps_word_in_quotes(self):
+        assert quote_phrase("книга") == '"книга"'
+
+    def test_escapes_quotes_in_input(self):
+        assert quote_phrase('кни"га') == '"кни""га"'
 
 
 class TestFormatExample:
@@ -32,7 +44,7 @@ class TestFormatExample:
         assert format_example([]) == "Нет слова в корпусе"
 
     def test_joins_examples_with_separator(self):
-        assert format_example(["раз", "два"]) == "раз---два"
+        assert format_example(["раз", "два"]) == "раз\n\n---\n\nдва"
 
 
 class TestFindWordCorpus:
@@ -56,7 +68,7 @@ class TestFindWordCorpus:
     def test_searches_both_languages(self):
         both = find_word_corpus("книга", "Хакасский/Русский")
 
-        assert both.count("---") >= find_word_corpus("книга", "Хакасский").count("---")
+        assert both.count("---") > find_word_corpus("книга", "Хакасский").count("---")
 
     def test_limits_number_of_examples(self):
         text = find_word_corpus("книга", "Хакасский", num_examples=2)
@@ -66,13 +78,27 @@ class TestFindWordCorpus:
     def test_does_not_match_part_of_another_word(self):
         assert "Аның книгазы стол ӱстӱнде." not in find_word_corpus("книга", "Хакасский")
 
-    def test_word_at_sentence_edge_is_not_found(self):
-        # Известное ограничение: поиск идёт по подстроке ' слово ',
-        # поэтому слово в начале или в конце предложения не находится.
-        assert find_word_corpus("мин", "Хакасский") == "Нет слова в корпусе"
+    def test_finds_word_at_sentence_start(self):
+        assert "Мин Ағбанда чуртапчам." in find_word_corpus("мин", "Хакасский")
+
+    def test_finds_word_before_punctuation(self):
+        assert "Мин Ағбанда чуртапчам." in find_word_corpus("чуртапчам", "Хакасский")
+
+    def test_falls_back_to_prefix_search(self):
+        text = find_word_corpus("книгаз", "Хакасский")
+
+        assert "Точных совпадений нет" in text
+        assert "Аның книгазы стол ӱстӱнде." in text
+
+    def test_exact_match_wins_over_prefix(self):
+        assert "Точных совпадений нет" not in find_word_corpus("книга", "Хакасский")
 
     def test_reports_unknown_word(self):
         assert find_word_corpus("абырақ", "Хакасский") == "Нет слова в корпусе"
+
+    @pytest.mark.parametrize("word", ['кни"га', "AND OR", "*", "...", "123"])
+    def test_survives_query_syntax_in_input(self, word):
+        assert find_word_corpus(word, "Хакасский/Русский") == "Нет слова в корпусе"
 
     def test_warns_on_empty_input(self):
         with pytest.warns(UserWarning, match="Введите слово"):
@@ -96,5 +122,7 @@ class TestGetRandomWordCorpus:
             word, lang_in, text = get_random_word_corpus()
 
             assert lang_in in {"Хакасский", "Русский"}
-            assert word in corpus.lang2words["kjh" if lang_in == "Хакасский" else "ru"]
             assert text == find_word_corpus(word, lang_in)
+            # слово взято из самого корпуса, поэтому пример обязан найтись точно
+            assert text != "Нет слова в корпусе"
+            assert "Точных совпадений нет" not in text

@@ -86,12 +86,15 @@ with gr.Blocks(title="Озвучка") as tts_interface:
         with gr.Column():
             audio_output = gr.Audio(label="Результат", type="numpy")
 
+    # Синтез упирается в CPU, а ядер всего два: больше одного за раз не запускаем.
     submit_btn.click(fn=text_to_speech,
                      inputs=[text_input, speaker_input],
-                     outputs=audio_output)
+                     outputs=audio_output,
+                     concurrency_limit=1)
     random_btn.click(fn=random_text_to_speech,
                      inputs=None,
-                     outputs=[text_input, speaker_input, audio_output])
+                     outputs=[text_input, speaker_input, audio_output],
+                     concurrency_limit=1)
     clear_btn.click(fn=lambda: ("", "Сибдей", None),
                     inputs=None,
                     outputs=[text_input, speaker_input, audio_output])

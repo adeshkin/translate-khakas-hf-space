@@ -10,6 +10,11 @@ TAG_RE = re.compile(r'<([ib])>(.*?)</\1>', re.DOTALL)
 EMPTY_TAG_RE = re.compile(r'<([ib])>(\s*)</\1>')
 TRAIL_RE = re.compile(r'<br>(?=(?:</[ib]>)*$)')
 
+# Границы отката словоформы к статье-основе: «ағасха» ищется как «ағас»,
+# но «аалларынзар» до «аал» уже не сокращается.
+MIN_STEM_LEN = 3
+MAX_SUFFIX_LEN = 6
+
 dict_hf_id = 'adeshkin/khakas-russian-dict'
 ds = load_dataset(dict_hf_id, split='train')
 
@@ -17,16 +22,10 @@ ds = load_dataset(dict_hf_id, split='train')
 def prepare_dict():
     word2dict_article = {'kjh': dict(),
                          'ru': dict()}
-    for row in ds:
-        kjh_word = row['word'].strip().lower()
-        ru_word = row['semgloss'].strip().lower()
-        if kjh_word not in word2dict_article['kjh']:
-            word2dict_article['kjh'][kjh_word] = []
-        word2dict_article['kjh'][kjh_word].append(row['field1'])
-
-        if ru_word not in word2dict_article['ru']:
-            word2dict_article['ru'][ru_word] = []
-        word2dict_article['ru'][ru_word].append(row['field1'])
+    # Колонки берутся из Arrow целиком: построчный обход датасета на порядок дороже.
+    for kjh_word, ru_word, article in zip(ds['word'], ds['semgloss'], ds['field1']):
+        word2dict_article['kjh'].setdefault(kjh_word.strip().lower(), []).append(article)
+        word2dict_article['ru'].setdefault(ru_word.strip().lower(), []).append(article)
 
     return word2dict_article
 
@@ -64,6 +63,21 @@ def format_article(articles):
     return text
 
 
+def lookup_word(word, lang):
+    """Ищет точное совпадение, иначе самую длинную статью-основу для словоформы."""
+    articles = word2article[lang]
+    if word in articles:
+        return word, articles[word]
+
+    min_stem_len = max(MIN_STEM_LEN, len(word) - MAX_SUFFIX_LEN)
+    for stem_len in range(len(word) - 1, min_stem_len - 1, -1):
+        stem = word[:stem_len]
+        if stem in articles:
+            return stem, articles[stem]
+
+    return None, []
+
+
 def find_word_dict(word, lang_in):
     word = word.strip().lower()
     if len(word) == 0:
@@ -71,17 +85,22 @@ def find_word_dict(word, lang_in):
         return ""
 
     if lang_in == 'Хакасский/Русский':
-        articles = []
-        for lang in ['kjh', 'ru']:
-            if word in word2article[lang]:
-                articles.extend(word2article[lang][word])
+        langs = ['kjh', 'ru']
     else:
-        lang = 'ru' if lang_in == 'Русский' else 'kjh'
-        articles = []
-        if word in word2article[lang]:
-            articles.extend(word2article[lang][word])
+        langs = ['ru'] if lang_in == 'Русский' else ['kjh']
+
+    articles = []
+    stems = []
+    for lang in langs:
+        stem, lang_articles = lookup_word(word, lang)
+        articles.extend(lang_articles)
+        if stem is not None and stem != word:
+            stems.append(stem)
 
     text = format_article(articles)
+    if len(stems) > 0:
+        found = ', '.join(f'«{stem}»' for stem in dict.fromkeys(stems))
+        text = f'*Точного совпадения нет — статьи для {found}.*\n\n{text}'
 
     return text
 

@@ -6,6 +6,7 @@ from kjh_ru_dict import (
     format_article,
     get_random_word_dict,
     insert_letter,
+    lookup_word,
     prepare_article,
     prepare_dict,
 )
@@ -93,6 +94,38 @@ class TestFindWordDict:
     def test_warns_on_empty_input(self):
         with pytest.warns(UserWarning, match="Введите слово"):
             assert find_word_dict("   ", "Хакасский") == ""
+
+
+class TestLookupWord:
+    def test_prefers_exact_match(self):
+        assert lookup_word("ағас", "kjh")[0] == "ағас"
+
+    def test_falls_back_to_longest_stem(self):
+        assert lookup_word("ағасха", "kjh")[0] == "ағас"
+
+    def test_keeps_stem_no_shorter_than_min_len(self):
+        assert lookup_word("аға", "kjh") == (None, [])
+
+    def test_does_not_strip_more_than_max_suffix(self):
+        assert lookup_word("ағасхаларынзар", "kjh") == (None, [])
+
+
+class TestFindWordDictStemFallback:
+    def test_shows_article_of_the_stem(self):
+        text = find_word_dict("ағасха", "Хакасский")
+
+        assert "дерево" in text
+        assert "Точного совпадения нет" in text
+        assert "«ағас»" in text
+
+    def test_works_for_russian_too(self):
+        assert "книга" in find_word_dict("книгами", "Русский")
+
+    def test_exact_match_has_no_note(self):
+        assert "Точного совпадения нет" not in find_word_dict("ағас", "Хакасский")
+
+    def test_reports_missing_word_when_stem_is_too_short(self):
+        assert find_word_dict("ағасхаларынзар", "Хакасский") == "Нет слова"
 
 
 class TestGetRandomWordDict:

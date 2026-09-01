@@ -1,35 +1,120 @@
-from datasets import load_dataset
+import hashlib
+import os
 import random
+import re
+import sqlite3
+import tempfile
+import threading
+
 import gradio as gr
-from razdel import tokenize
+from datasets import load_dataset
 
 dict_hf_id = 'adeshkin/khakas-russian-parallel-corpus'
 ds = load_dataset(dict_hf_id, split='train')
 
+# Версия схемы входит в имя файла базы: при её изменении база собирается заново.
+DB_SCHEMA_VERSION = 1
+CREATE_TABLE_SQL = ('CREATE VIRTUAL TABLE corpus USING fts5('
+                    'kjh, ru, tokenize="unicode61 remove_diacritics 0")')
+# remove_diacritics 0 оставляет ӧ, ӱ отдельными буквами: «кун» и «кӱн» — разные слова.
 
-def prepare_corpus():
-    lang2corpus_words = {'kjh': set(), 'ru': set()}
-    for row in ds:
-        kjh_sent = row['kjh'].lower()
-        ru_sent = row['ru'].lower()
-        kjh_words = [token.text for token in tokenize(kjh_sent) if token.text.isalpha()]
-        ru_words = [token.text for token in tokenize(ru_sent) if token.text.isalpha()]
-        lang2corpus_words['kjh'].update(set(kjh_words))
-        lang2corpus_words['ru'].update(set(ru_words))
+WORD_RE = re.compile(r'[^\W\d_]+')
 
-    return lang2corpus_words
-
-
-lang2words = prepare_corpus()
 lang_map = {'kjh': 'Хакасский',
             'ru': 'Русский'}
+
+
+def dataset_fingerprint():
+    parts = (getattr(ds, '_fingerprint', ''), repr(getattr(ds, 'cache_files', '')), len(ds))
+
+    return hashlib.sha1(repr(parts).encode()).hexdigest()[:16]
+
+
+def build_index():
+    """Собирает полнотекстовый индекс корпуса во временном файле.
+
+    Готовый файл переиспользуется, поэтому повторный запуск стартует мгновенно.
+    """
+    db_path = os.path.join(tempfile.gettempdir(),
+                           f'kjh_corpus_v{DB_SCHEMA_VERSION}_{dataset_fingerprint()}.db')
+    if os.path.exists(db_path):
+        return db_path
+
+    tmp_path = f'{db_path}.{os.getpid()}.tmp'
+    try:
+        con = sqlite3.connect(tmp_path)
+        try:
+            con.execute('PRAGMA journal_mode = OFF')
+            con.execute('PRAGMA synchronous = OFF')
+            con.execute(CREATE_TABLE_SQL)
+            # Колонки берутся из Arrow целиком: построчный обход датасета на порядок дороже.
+            con.executemany('INSERT INTO corpus(kjh, ru) VALUES (?, ?)',
+                            zip(ds['kjh'], ds['ru']))
+            con.commit()
+        finally:
+            con.close()
+        # Подмена файла целиком: параллельная сборка не отдаст недособранную базу.
+        os.replace(tmp_path, db_path)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
+
+    return db_path
+
+
+db_path = build_index()
+num_rows = len(ds)
+connections = threading.local()
+
+
+def get_connection():
+    """Отдаёт соединение текущего потока: gradio обрабатывает запросы в пуле потоков."""
+    con = getattr(connections, 'con', None)
+    if con is None:
+        con = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)
+        connections.con = con
+
+    return con
+
+
+def quote_phrase(word):
+    """Превращает любой ввод в одну фразу FTS5, чтобы синтаксис MATCH не ломался."""
+    return '"' + word.replace('"', '""') + '"'
+
+
+def get_sentence(lang, rowid):
+    # lang приходит только из lang_map, не из пользовательского ввода.
+    row = get_connection().execute(f'SELECT {lang} FROM corpus WHERE rowid = ?',
+                                   (rowid,)).fetchone()
+
+    return row[0]
+
+
+def search_lang(lang, word, limit, prefix=False):
+    query = f'{lang}:{quote_phrase(word)}' + ('*' if prefix else '')
+    rows = get_connection().execute('SELECT kjh, ru FROM corpus WHERE corpus MATCH ? LIMIT ?',
+                                    (query, limit)).fetchall()
+
+    return [f'{kjh_sent}\n\n{ru_sent}' if lang == 'kjh' else f'{ru_sent}\n\n{kjh_sent}'
+            for kjh_sent, ru_sent in rows]
+
+
+def search(langs, word, num_examples, prefix=False):
+    examples = []
+    for lang in langs:
+        examples.extend(search_lang(lang, word, num_examples - len(examples), prefix))
+        if len(examples) == num_examples:
+            break
+
+    return examples
 
 
 def format_example(article):
     if len(article) == 0:
         return 'Нет слова в корпусе'
 
-    text = '---'.join(article)
+    text = '\n\n---\n\n'.join(article)
 
     return text
 
@@ -40,44 +125,36 @@ def find_word_corpus(word, lang_in, num_examples=5):
         gr.Warning("Введите слово")
         return ""
 
-    word = ' ' + word + ' '
-    examples = []
-    for row in ds:
-        if lang_in == 'Хакасский/Русский':
-            for lang in ['kjh', 'ru']:
-                text = row[lang].lower()
-                if word in text:
-                    lang1 = 'kjh' if lang == 'ru' else 'ru'
-                    example = f'{row[lang]}\n\n{row[lang1]}'
-                    examples.append(example)
-        else:
-            lang = 'ru' if lang_in == 'Русский' else 'kjh'
-            text = row[lang].lower()
-            if word in text:
-                lang1 = 'kjh' if lang == 'ru' else 'ru'
-                example = f'{row[lang]}\n\n{row[lang1]}'
-                examples.append(example)
+    if lang_in == 'Хакасский/Русский':
+        langs = ['kjh', 'ru']
+    else:
+        langs = ['ru'] if lang_in == 'Русский' else ['kjh']
 
-        if len(examples) == num_examples:
-            break
+    note = ''
+    examples = search(langs, word, num_examples)
+    if len(examples) == 0:
+        examples = search(langs, word, num_examples, prefix=True)
+        if len(examples) > 0:
+            note = f'*Точных совпадений нет — слова, начинающиеся на «{word}».*\n\n'
 
-    text = format_example(examples)
-
-    return text
+    return note + format_example(examples)
 
 
 def get_random_kjh_example(max_text_len):
     sent = ''
     while len(sent) == 0 or len(sent) > max_text_len:
-        row = random.choice(ds)
-        sent = row['kjh']
+        sent = get_sentence('kjh', random.randint(1, num_rows))
 
     return sent
 
 
 def get_random_word_corpus():
     lang = random.choice(list(lang_map.keys()))
-    word = random.choice(list(lang2words[lang]))
+    words = []
+    while len(words) == 0:
+        words = WORD_RE.findall(get_sentence(lang, random.randint(1, num_rows)).lower())
+
+    word = random.choice(words)
     lang_in = lang_map[lang]
     text = find_word_corpus(word, lang_in)
 
