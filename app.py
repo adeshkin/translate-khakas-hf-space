@@ -59,7 +59,7 @@ CUSTOM_CSS = f"""
 .khakas-letters {{
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem;
+    gap: 0.25rem;
     margin: -0.5rem 0 0.75rem;
 }}
 
