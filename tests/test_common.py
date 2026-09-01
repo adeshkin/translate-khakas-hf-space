@@ -24,7 +24,7 @@ class TestLangsFor:
     @pytest.mark.parametrize("lang_in, expected", [
         ("Хакасский", ["kjh"]),
         ("Русский", ["ru"]),
-        ("Оба языка", ["kjh", "ru"]),
+        ("Хакасский/Русский", ["kjh", "ru"]),
     ])
     def test_maps_choice_to_dataset_columns(self, lang_in, expected):
         assert langs_for(lang_in) == expected

@@ -66,7 +66,7 @@ class TestFindWordCorpus:
         assert find_word_corpus("живу", "Хакасский") == "Слово не найдено в корпусе"
 
     def test_searches_both_languages(self):
-        both = find_word_corpus("книга", "Оба языка")
+        both = find_word_corpus("книга", "Хакасский/Русский")
 
         assert both.count("---") > find_word_corpus("книга", "Хакасский").count("---")
 
@@ -94,7 +94,7 @@ class TestFindWordCorpus:
         assert "Точных совпадений нет" not in find_word_corpus("книга", "Хакасский")
 
     def test_shows_pair_once_when_word_is_on_both_sides(self):
-        text = find_word_corpus("телефон", "Оба языка")
+        text = find_word_corpus("телефон", "Хакасский/Русский")
 
         assert text.count("Мин <b>телефон</b> алғам.") == 1
 
@@ -103,7 +103,7 @@ class TestFindWordCorpus:
 
     @pytest.mark.parametrize("word", ['кни"га', "AND OR", "*", "...", "123"])
     def test_survives_query_syntax_in_input(self, word):
-        assert find_word_corpus(word, "Оба языка") == "Слово не найдено в корпусе"
+        assert find_word_corpus(word, "Хакасский/Русский") == "Слово не найдено в корпусе"
 
     def test_warns_on_empty_input(self):
         with pytest.warns(UserWarning, match="Введите слово"):

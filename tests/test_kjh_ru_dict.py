@@ -80,7 +80,7 @@ class TestFindWordDict:
         assert find_word_dict("  АҒАС ", "Хакасский") == find_word_dict("ағас", "Хакасский")
 
     def test_searches_both_languages(self):
-        text = find_word_dict("книга", "Оба языка")
+        text = find_word_dict("книга", "Хакасский/Русский")
 
         assert text.count("---") == 1
 
