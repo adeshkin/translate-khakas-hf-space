@@ -37,4 +37,4 @@ def letter_buttons(text_input):
 def lang_radio():
     return gr.Radio(choices=LANG_CHOICES,
                     value=DEFAULT_LANG,
-                    label="Язык")
+                    label="Язык слова")

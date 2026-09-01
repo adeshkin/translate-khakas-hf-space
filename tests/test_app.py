@@ -53,7 +53,7 @@ def test_tabs_are_in_expected_order(app_module):
         app_module.links_interface.title,
     ]
 
-    assert titles == ["Словарь", "Корпус", "Озвучка", "Ссылки"]
+    assert titles == ["Словарь", "Примеры", "Озвучка", "Ссылки"]
 
 
 def test_footer_links_to_vk(app_module):

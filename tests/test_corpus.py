@@ -41,7 +41,7 @@ class TestQuotePhrase:
 
 class TestFormatExample:
     def test_reports_missing_word(self):
-        assert format_example([]) == "Нет слова в корпусе"
+        assert format_example([]) == "Слово не найдено в корпусе"
 
     def test_joins_examples_with_separator(self):
         assert format_example(["раз", "два"]) == "раз\n\n---\n\nдва"
@@ -51,7 +51,7 @@ class TestFindWordCorpus:
     def test_finds_khakas_word_with_translation(self):
         text = find_word_corpus("книга", "Хакасский")
 
-        assert "Ол пала книга хығырча." in text
+        assert "Ол пала <b>книга</b> хығырча." in text
         assert "Этот ребёнок читает книгу." in text
 
     def test_finds_russian_word(self):
@@ -63,10 +63,10 @@ class TestFindWordCorpus:
         assert find_word_corpus(" КНИГА ", "Хакасский") == find_word_corpus("книга", "Хакасский")
 
     def test_language_filter_is_respected(self):
-        assert find_word_corpus("живу", "Хакасский") == "Нет слова в корпусе"
+        assert find_word_corpus("живу", "Хакасский") == "Слово не найдено в корпусе"
 
     def test_searches_both_languages(self):
-        both = find_word_corpus("книга", "Хакасский/Русский")
+        both = find_word_corpus("книга", "Оба языка")
 
         assert both.count("---") > find_word_corpus("книга", "Хакасский").count("---")
 
@@ -79,31 +79,31 @@ class TestFindWordCorpus:
         assert "Аның книгазы стол ӱстӱнде." not in find_word_corpus("книга", "Хакасский")
 
     def test_finds_word_at_sentence_start(self):
-        assert "Мин Ағбанда чуртапчам." in find_word_corpus("мин", "Хакасский")
+        assert "<b>Мин</b> Ағбанда чуртапчам." in find_word_corpus("мин", "Хакасский")
 
     def test_finds_word_before_punctuation(self):
-        assert "Мин Ағбанда чуртапчам." in find_word_corpus("чуртапчам", "Хакасский")
+        assert "Мин Ағбанда <b>чуртапчам</b>." in find_word_corpus("чуртапчам", "Хакасский")
 
     def test_falls_back_to_prefix_search(self):
         text = find_word_corpus("книгаз", "Хакасский")
 
         assert "Точных совпадений нет" in text
-        assert "Аның книгазы стол ӱстӱнде." in text
+        assert "Аның <b>книгазы</b> стол ӱстӱнде." in text
 
     def test_exact_match_wins_over_prefix(self):
         assert "Точных совпадений нет" not in find_word_corpus("книга", "Хакасский")
 
     def test_shows_pair_once_when_word_is_on_both_sides(self):
-        text = find_word_corpus("телефон", "Хакасский/Русский")
+        text = find_word_corpus("телефон", "Оба языка")
 
-        assert text.count("Мин телефон алғам.") == 1
+        assert text.count("Мин <b>телефон</b> алғам.") == 1
 
     def test_reports_unknown_word(self):
-        assert find_word_corpus("абырақ", "Хакасский") == "Нет слова в корпусе"
+        assert find_word_corpus("абырақ", "Хакасский") == "Слово не найдено в корпусе"
 
     @pytest.mark.parametrize("word", ['кни"га', "AND OR", "*", "...", "123"])
     def test_survives_query_syntax_in_input(self, word):
-        assert find_word_corpus(word, "Хакасский/Русский") == "Нет слова в корпусе"
+        assert find_word_corpus(word, "Оба языка") == "Слово не найдено в корпусе"
 
     def test_warns_on_empty_input(self):
         with pytest.warns(UserWarning, match="Введите слово"):
@@ -140,7 +140,7 @@ class TestGetRandomWordCorpus:
             assert lang_in in {"Хакасский", "Русский"}
             assert text == find_word_corpus(word, lang_in)
             # слово взято из самого корпуса, поэтому пример обязан найтись точно
-            assert text != "Нет слова в корпусе"
+            assert text != "Слово не найдено в корпусе"
             assert "Точных совпадений нет" not in text
 
     def test_gives_up_instead_of_looping_forever(self, monkeypatch):

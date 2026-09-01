@@ -102,6 +102,17 @@ def search_lang(lang, word, limit, prefix=False):
         (query, limit)).fetchall()
 
 
+def highlight_word(text, word, prefix=False):
+    """Выделяет найденное слово в примере предложения."""
+    escaped = re.escape(word)
+    if prefix:
+        pattern = re.compile(rf'(?<![^\W\d_])({escaped}[^\W\d_]*)', re.IGNORECASE)
+    else:
+        pattern = re.compile(rf'(?<![^\W\d_])({escaped})(?![^\W\d_])', re.IGNORECASE)
+
+    return pattern.sub(r'<b>\1</b>', text)
+
+
 def search(langs, word, num_examples, prefix=False):
     examples = []
     seen = set()
@@ -113,8 +124,12 @@ def search(langs, word, num_examples, prefix=False):
                 continue
 
             seen.add(rowid)
-            examples.append(f'{kjh_sent}\n\n{ru_sent}' if lang == 'kjh'
-                            else f'{ru_sent}\n\n{kjh_sent}')
+            if lang == 'kjh':
+                kjh_sent = highlight_word(kjh_sent, word, prefix)
+            else:
+                ru_sent = highlight_word(ru_sent, word, prefix)
+            examples.append(f'- {kjh_sent}\n\n- {ru_sent}' if lang == 'kjh'
+                            else f'- {ru_sent}\n\n- {kjh_sent}')
             if len(examples) == num_examples:
                 return examples
 
@@ -123,7 +138,7 @@ def search(langs, word, num_examples, prefix=False):
 
 def format_example(examples):
     if len(examples) == 0:
-        return 'Нет слова в корпусе'
+        return 'Слово не найдено в корпусе'
 
     return '\n\n---\n\n'.join(examples)
 
@@ -141,7 +156,8 @@ def find_word_corpus(word, lang_in, num_examples=5):
     if len(examples) == 0:
         examples = search(langs, word, num_examples, prefix=True)
         if len(examples) > 0:
-            note = f'*Точных совпадений нет — слова, начинающиеся на «{word}».*\n\n'
+            note = ('*Точных совпадений нет. Показываем слова, начинающиеся '
+                    f'на «{word}».*\n\n')
 
     return note + format_example(examples)
 
@@ -179,13 +195,13 @@ def get_random_word_corpus():
     return word, lang_in, text
 
 
-with gr.Blocks(title="Корпус") as corpus_interface:
-    gr.Markdown("Корпус")
+with gr.Blocks(title="Примеры") as corpus_interface:
+    gr.Markdown("Введите слово — покажем предложения из хакасско-русского корпуса с переводом.")
 
     with gr.Row():
         with gr.Column():
             text_input = gr.Textbox(label="Слово",
-                                    placeholder="Введите слово")
+                                    placeholder="Слово на хакасском или русском")
             letter_buttons(text_input)
 
             lang_input = lang_radio()
@@ -196,7 +212,7 @@ with gr.Blocks(title="Корпус") as corpus_interface:
                 clear_btn = gr.Button("Очистить")
 
         with gr.Column():
-            corpus_output = gr.Markdown(label="Результат",
+            corpus_output = gr.Markdown(label="Примеры из корпуса",
                                         container=True,
                                         padding=True,
                                         elem_classes="result-output")

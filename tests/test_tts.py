@@ -34,14 +34,14 @@ class TestTextToSpeech:
             assert text_to_speech("   ", "Сибдей") is None
 
     def test_warns_on_too_long_text(self):
-        with pytest.warns(UserWarning, match=f"> {MAX_TEXT_LEN}"):
+        with pytest.warns(UserWarning, match=f"максимум {MAX_TEXT_LEN}"):
             assert text_to_speech("а" * (MAX_TEXT_LEN + 1), "Сибдей") is None
 
     def test_accepts_text_of_max_length(self):
         assert text_to_speech("а" * MAX_TEXT_LEN, "Сибдей") is not None
 
     def test_warns_on_unknown_speaker(self):
-        with pytest.warns(UserWarning, match="не поддерживается"):
+        with pytest.warns(UserWarning, match="недоступен"):
             assert text_to_speech("сӧс", "Незнакомый") is None
 
 

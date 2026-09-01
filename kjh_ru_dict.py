@@ -55,7 +55,7 @@ def prepare_article(article):
 
 def format_article(articles):
     if len(articles) == 0:
-        return 'Нет слова'
+        return 'Слово не найдено в словаре'
 
     return '\n\n---\n\n'.join(prepare_article(article) for article in articles)
 
@@ -94,7 +94,7 @@ def find_word_dict(word, lang_in):
     text = format_article(articles)
     if len(stems) > 0:
         found = ', '.join(f'«{stem}»' for stem in dict.fromkeys(stems))
-        text = f'*Точного совпадения нет — статьи для {found}.*\n\n{text}'
+        text = f'*Точного совпадения нет. Показываем статьи для {found}.*\n\n{text}'
 
     return text
 
@@ -109,12 +109,12 @@ def get_random_word_dict():
 
 
 with gr.Blocks(title="Словарь") as dict_interface:
-    gr.Markdown("Словарь")
+    gr.Markdown("Введите слово на хакасском или русском — покажем словарные статьи.")
 
     with gr.Row():
         with gr.Column():
             text_input = gr.Textbox(label="Слово",
-                                    placeholder="Введите слово")
+                                    placeholder="Слово на хакасском или русском")
             letter_buttons(text_input)
 
             lang_input = lang_radio()
@@ -125,7 +125,7 @@ with gr.Blocks(title="Словарь") as dict_interface:
                 clear_btn = gr.Button("Очистить")
 
         with gr.Column():
-            dict_output = gr.Markdown(label="Результат",
+            dict_output = gr.Markdown(label="Словарные статьи",
                                       container=True,
                                       padding=True,
                                       elem_classes="result-output")

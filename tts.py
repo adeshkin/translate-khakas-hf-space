@@ -26,13 +26,13 @@ def text_to_speech(text, speaker):
         return None
 
     if len(text) > MAX_TEXT_LEN:
-        gr.Warning(f"Длина текста {len(text)} > {MAX_TEXT_LEN}")
+        gr.Warning(f"Слишком длинный текст: {len(text)} символов, максимум {MAX_TEXT_LEN}")
         return None
 
     model_speaker = SPEAKER2MODEL_SPEAKER.get(speaker, None)
     if model_speaker is None:
-        gr.Warning(
-            f"Speaker {speaker} не поддерживается, только {SPEAKER2MODEL_SPEAKER.keys()}")
+        gr.Warning(f"Голос «{speaker}» недоступен. Доступные голоса: "
+                   f"{', '.join(SPEAKER2MODEL_SPEAKER)}")
         return None
 
     audio_tensor = model.apply_tts(text=text,
@@ -54,18 +54,18 @@ def random_text_to_speech():
 
 
 with gr.Blocks(title="Озвучка") as tts_interface:
-    gr.Markdown("Озвучка")
+    gr.Markdown("Введите текст на хакасском и выберите голос — получите аудио.")
 
     with gr.Row():
         with gr.Column():
             text_input = gr.Textbox(
                 label="Текст",
-                placeholder="Введите текст"
+                placeholder=f"Текст на хакасском, до {MAX_TEXT_LEN} символов"
             )
             letter_buttons(text_input)
 
             speaker_input = gr.Radio(
-                choices=["Сибдей", "Карина"],
+                choices=[("Сибдей (мужской)", "Сибдей"), ("Карина (женский)", "Карина")],
                 value="Сибдей",
                 label="Голос"
             )
@@ -75,7 +75,7 @@ with gr.Blocks(title="Озвучка") as tts_interface:
                 clear_btn = gr.Button("Очистить")
 
         with gr.Column():
-            audio_output = gr.Audio(label="Результат", type="numpy")
+            audio_output = gr.Audio(label="Аудио", type="numpy")
 
     # Синтез упирается в CPU, а ядер всего два: больше одного за раз не запускаем.
     submit_btn.click(fn=text_to_speech,

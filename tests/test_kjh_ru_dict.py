@@ -58,7 +58,7 @@ class TestPrepareArticle:
 
 class TestFormatArticle:
     def test_reports_missing_word(self):
-        assert format_article([]) == "Нет слова"
+        assert format_article([]) == "Слово не найдено в словаре"
 
     def test_joins_articles_with_separator(self):
         text = format_article(["<b>а</b> раз", "<b>а</b> два"])
@@ -80,15 +80,15 @@ class TestFindWordDict:
         assert find_word_dict("  АҒАС ", "Хакасский") == find_word_dict("ағас", "Хакасский")
 
     def test_searches_both_languages(self):
-        text = find_word_dict("книга", "Хакасский/Русский")
+        text = find_word_dict("книга", "Оба языка")
 
         assert text.count("---") == 1
 
     def test_language_filter_is_respected(self):
-        assert find_word_dict("дерево", "Хакасский") == "Нет слова"
+        assert find_word_dict("дерево", "Хакасский") == "Слово не найдено в словаре"
 
     def test_reports_unknown_word(self):
-        assert find_word_dict("абырақ", "Хакасский") == "Нет слова"
+        assert find_word_dict("абырақ", "Хакасский") == "Слово не найдено в словаре"
 
     def test_warns_on_empty_input(self):
         with pytest.warns(UserWarning, match="Введите слово"):
@@ -124,7 +124,7 @@ class TestFindWordDictStemFallback:
         assert "Точного совпадения нет" not in find_word_dict("ағас", "Хакасский")
 
     def test_reports_missing_word_when_stem_is_too_short(self):
-        assert find_word_dict("ағасхаларынзар", "Хакасский") == "Нет слова"
+        assert find_word_dict("ағасхаларынзар", "Хакасский") == "Слово не найдено в словаре"
 
 
 class TestGetRandomWordDict:
@@ -135,4 +135,4 @@ class TestGetRandomWordDict:
             assert lang_in in {"Хакасский", "Русский"}
             assert word in kjh_ru_dict.word2article["kjh" if lang_in == "Хакасский" else "ru"]
             assert text == find_word_dict(word, lang_in)
-            assert text != "Нет слова"
+            assert text != "Слово не найдено в словаре"
