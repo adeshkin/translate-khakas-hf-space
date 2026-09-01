@@ -63,12 +63,19 @@ CUSTOM_CSS = f"""
     margin: -0.5rem 0 0.75rem;
 }}
 
+.khakas-letters > * {{
+    flex: 0 0 auto !important;
+    width: auto !important;
+}}
+
 .khakas-letters button {{
-    min-width: 2.3em;
-    max-width: 2.3em;
-    height: 1.9em;
-    padding: 0;
+    width: 2.6em !important;
+    min-width: 2.6em !important;
+    max-width: 2.6em !important;
+    height: 2em !important;
+    padding: 0 !important;
     flex-grow: 0 !important;
+    flex-shrink: 0 !important;
     font-size: 15px;
 }}
 
