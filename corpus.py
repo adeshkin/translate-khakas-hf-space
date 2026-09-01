@@ -29,7 +29,7 @@ def format_example(article):
     if len(article) == 0:
         return 'Нет слова в корпусе'
 
-    text = '\n\n---\n\n'.join(article)
+    text = '---'.join(article)
 
     return text
 

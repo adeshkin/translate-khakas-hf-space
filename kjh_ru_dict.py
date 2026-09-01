@@ -1,6 +1,14 @@
 import gradio as gr
 from datasets import load_dataset
 import random
+import re
+
+SPLIT_RE = re.compile(r'([;:])\s*(?!\s)(?=[\W\d_])')
+NUM_RE = re.compile(r'(?<!<b>)(?<!<i>)(?<!<br>)(?<!\s)(?<!\d)\s*(?=1[.)])')
+JOIN_RE = re.compile(r'(\d+\.(?:</[ib]>)*)<br>(?=\d+\))')
+TAG_RE = re.compile(r'<([ib])>(.*?)</\1>', re.DOTALL)
+EMPTY_TAG_RE = re.compile(r'<([ib])>(\s*)</\1>')
+TRAIL_RE = re.compile(r'<br>(?=(?:</[ib]>)*$)')
 
 dict_hf_id = 'adeshkin/khakas-russian-dict'
 ds = load_dataset(dict_hf_id, split='train')
@@ -29,11 +37,29 @@ lang_map = {'kjh': 'Хакасский',
             'ru': 'Русский'}
 
 
+def split_tag(match):
+    tag, inner = match.group(1), match.group(2)
+    inner = inner.replace(';', f'</{tag}> ; <{tag}>')
+
+    return f'<{tag}>{inner}</{tag}>'
+
+
+def prepare_article(article):
+    article = article.replace('<і>', '<i>').replace('</і>', '</i>')
+    article = TAG_RE.sub(split_tag, article)
+    article = EMPTY_TAG_RE.sub(r'\2', article)
+    article = SPLIT_RE.sub(r'\1<br>', article)
+    article = NUM_RE.sub('<br>', article)
+    article = JOIN_RE.sub(r'\1 ', article)
+
+    return TRAIL_RE.sub('', article.strip())
+
+
 def format_article(articles):
     if len(articles) == 0:
         return 'Нет слова'
 
-    text = '\n\n---\n\n'.join(articles).replace('<і>', '<i>').replace('</і>', '</i>')
+    text = '\n\n---\n\n'.join(prepare_article(article) for article in articles)
 
     return text
 
@@ -102,7 +128,8 @@ with gr.Blocks(title="Словарь") as dict_interface:
         with gr.Column():
             dict_output = gr.Markdown(label="Результат",
                                       container=True,
-                                      padding=True)
+                                      padding=True,
+                                      elem_classes="dict-output")
 
     submit_btn.click(fn=find_word_dict,
                      inputs=[text_input, lang_input],

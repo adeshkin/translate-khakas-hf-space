@@ -57,6 +57,14 @@ CUSTOM_CSS = f"""
     font-size: 19px;
 }}
 
+.dict-output p {{
+    margin: 0;
+}}
+
+.dict-output hr {{
+    margin: 0.6rem 0;
+}}
+
 .khakas-letters {{
     display: flex;
     flex-wrap: wrap;
