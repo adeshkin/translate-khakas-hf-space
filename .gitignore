@@ -1,5 +1,5 @@
 .idea
-.claude/settings.local.json
+.claude
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
