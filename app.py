@@ -135,4 +135,7 @@ demo = gr.TabbedInterface([dict_interface, corpus_interface, tts_interface, link
 with demo:
     gr.HTML(FOOTER_HTML)
 
+# Поиск теперь отвечает за доли миллисекунды, и очередь по умолчанию (один
+# запрос за раз) держала бы его за озвучкой; сама озвучка ограничена в tts.py.
+demo.queue(default_concurrency_limit=8)
 demo.launch(css=CUSTOM_CSS)

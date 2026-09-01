@@ -4,6 +4,7 @@ import gradio as gr
 import random
 import numpy as np
 
+from common import letter_buttons
 from corpus import get_random_kjh_example
 
 device = torch.device("cpu")
@@ -52,13 +53,6 @@ def random_text_to_speech():
     return sent, speaker, text_to_speech(sent, speaker)
 
 
-def insert_letter(letter):
-    def _insert(text):
-        return (text or "") + letter
-
-    return _insert
-
-
 with gr.Blocks(title="Озвучка") as tts_interface:
     gr.Markdown("Озвучка")
 
@@ -68,10 +62,7 @@ with gr.Blocks(title="Озвучка") as tts_interface:
                 label="Текст",
                 placeholder="Введите текст"
             )
-            with gr.Row(elem_classes="khakas-letters"):
-                for letter in "іғңҷӧӱ":
-                    letter_btn = gr.Button(letter, size="sm", scale=0)
-                    letter_btn.click(insert_letter(letter), inputs=text_input, outputs=text_input)
+            letter_buttons(text_input)
 
             speaker_input = gr.Radio(
                 choices=["Сибдей", "Карина"],
@@ -86,12 +77,15 @@ with gr.Blocks(title="Озвучка") as tts_interface:
         with gr.Column():
             audio_output = gr.Audio(label="Результат", type="numpy")
 
+    # Синтез упирается в CPU, а ядер всего два: больше одного за раз не запускаем.
     submit_btn.click(fn=text_to_speech,
                      inputs=[text_input, speaker_input],
-                     outputs=audio_output)
+                     outputs=audio_output,
+                     concurrency_limit=1)
     random_btn.click(fn=random_text_to_speech,
                      inputs=None,
-                     outputs=[text_input, speaker_input, audio_output])
+                     outputs=[text_input, speaker_input, audio_output],
+                     concurrency_limit=1)
     clear_btn.click(fn=lambda: ("", "Сибдей", None),
                     inputs=None,
                     outputs=[text_input, speaker_input, audio_output])

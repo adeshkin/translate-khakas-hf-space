@@ -3,12 +3,19 @@ from datasets import load_dataset
 import random
 import re
 
+from common import DEFAULT_LANG, LANG_MAP, lang_radio, langs_for, letter_buttons
+
 SPLIT_RE = re.compile(r'([;:])\s*(?!\s)(?=[\W\d_])')
 NUM_RE = re.compile(r'(?<!<b>)(?<!<i>)(?<!<br>)(?<!\s)(?<!\d)\s*(?=1[.)])')
 JOIN_RE = re.compile(r'(\d+\.(?:</[ib]>)*)<br>(?=\d+\))')
 TAG_RE = re.compile(r'<([ib])>(.*?)</\1>', re.DOTALL)
 EMPTY_TAG_RE = re.compile(r'<([ib])>(\s*)</\1>')
 TRAIL_RE = re.compile(r'<br>(?=(?:</[ib]>)*$)')
+
+# Границы отката словоформы к статье-основе: «ағасха» ищется как «ағас»,
+# но «аалларынзар» до «аал» уже не сокращается.
+MIN_STEM_LEN = 3
+MAX_SUFFIX_LEN = 6
 
 dict_hf_id = 'adeshkin/khakas-russian-dict'
 ds = load_dataset(dict_hf_id, split='train')
@@ -17,24 +24,15 @@ ds = load_dataset(dict_hf_id, split='train')
 def prepare_dict():
     word2dict_article = {'kjh': dict(),
                          'ru': dict()}
-    for row in ds:
-        kjh_word = row['word'].strip().lower()
-        ru_word = row['semgloss'].strip().lower()
-        if kjh_word not in word2dict_article['kjh']:
-            word2dict_article['kjh'][kjh_word] = []
-        word2dict_article['kjh'][kjh_word].append(row['field1'])
-
-        if ru_word not in word2dict_article['ru']:
-            word2dict_article['ru'][ru_word] = []
-        word2dict_article['ru'][ru_word].append(row['field1'])
+    # Колонки берутся из Arrow целиком: построчный обход датасета на порядок дороже.
+    for kjh_word, ru_word, article in zip(ds['word'], ds['semgloss'], ds['field1']):
+        word2dict_article['kjh'].setdefault(kjh_word.strip().lower(), []).append(article)
+        word2dict_article['ru'].setdefault(ru_word.strip().lower(), []).append(article)
 
     return word2dict_article
 
 
 word2article = prepare_dict()
-
-lang_map = {'kjh': 'Хакасский',
-            'ru': 'Русский'}
 
 
 def split_tag(match):
@@ -59,9 +57,22 @@ def format_article(articles):
     if len(articles) == 0:
         return 'Нет слова'
 
-    text = '\n\n---\n\n'.join(prepare_article(article) for article in articles)
+    return '\n\n---\n\n'.join(prepare_article(article) for article in articles)
 
-    return text
+
+def lookup_word(word, lang):
+    """Ищет точное совпадение, иначе самую длинную статью-основу для словоформы."""
+    articles = word2article[lang]
+    if word in articles:
+        return word, articles[word]
+
+    min_stem_len = max(MIN_STEM_LEN, len(word) - MAX_SUFFIX_LEN)
+    for stem_len in range(len(word) - 1, min_stem_len - 1, -1):
+        stem = word[:stem_len]
+        if stem in articles:
+            return stem, articles[stem]
+
+    return None, []
 
 
 def find_word_dict(word, lang_in):
@@ -70,36 +81,31 @@ def find_word_dict(word, lang_in):
         gr.Warning("Введите слово")
         return ""
 
-    if lang_in == 'Хакасский/Русский':
-        articles = []
-        for lang in ['kjh', 'ru']:
-            if word in word2article[lang]:
-                articles.extend(word2article[lang][word])
-    else:
-        lang = 'ru' if lang_in == 'Русский' else 'kjh'
-        articles = []
-        if word in word2article[lang]:
-            articles.extend(word2article[lang][word])
+    langs = langs_for(lang_in)
+
+    articles = []
+    stems = []
+    for lang in langs:
+        stem, lang_articles = lookup_word(word, lang)
+        articles.extend(lang_articles)
+        if stem is not None and stem != word:
+            stems.append(stem)
 
     text = format_article(articles)
+    if len(stems) > 0:
+        found = ', '.join(f'«{stem}»' for stem in dict.fromkeys(stems))
+        text = f'*Точного совпадения нет — статьи для {found}.*\n\n{text}'
 
     return text
 
 
 def get_random_word_dict():
-    lang = random.choice(list(lang_map.keys()))
+    lang = random.choice(list(LANG_MAP.keys()))
     word = random.choice(list(word2article[lang].keys()))
-    lang_in = lang_map[lang]
+    lang_in = LANG_MAP[lang]
     text = find_word_dict(word, lang_in)
 
     return word, lang_in, text
-
-
-def insert_letter(letter):
-    def _insert(text):
-        return (text or "") + letter
-
-    return _insert
 
 
 with gr.Blocks(title="Словарь") as dict_interface:
@@ -109,16 +115,9 @@ with gr.Blocks(title="Словарь") as dict_interface:
         with gr.Column():
             text_input = gr.Textbox(label="Слово",
                                     placeholder="Введите слово")
-            with gr.Row(elem_classes="khakas-letters"):
-                for letter in "іғңҷӧӱ":
-                    letter_btn = gr.Button(letter, size="sm", scale=0)
-                    letter_btn.click(insert_letter(letter), inputs=text_input, outputs=text_input)
+            letter_buttons(text_input)
 
-            lang_input = gr.Radio(
-                choices=["Хакасский", "Русский", "Хакасский/Русский"],
-                value="Хакасский",
-                label="Язык"
-            )
+            lang_input = lang_radio()
 
             with gr.Row():
                 submit_btn = gr.Button("Найти", variant="primary")
@@ -137,6 +136,6 @@ with gr.Blocks(title="Словарь") as dict_interface:
     random_btn.click(fn=get_random_word_dict,
                      inputs=None,
                      outputs=[text_input, lang_input, dict_output])
-    clear_btn.click(fn=lambda: ("", "Хакасский", ""),
+    clear_btn.click(fn=lambda: ("", DEFAULT_LANG, ""),
                     inputs=None,
                     outputs=[text_input, lang_input, dict_output])
