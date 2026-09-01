@@ -12,7 +12,6 @@ MODELS_URL = "https://huggingface.co/collections/adeshkin/khakas-translation"
 MT_CODE_URL = "https://github.com/adeshkin/khakas-mt"
 
 
-
 LINK_GROUPS = [
     ("Данные", [
         ("📚", "Хакасско-русский параллельный корпус", "Датасет предложений на Hugging Face", CORPUS_URL),

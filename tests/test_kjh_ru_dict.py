@@ -5,7 +5,6 @@ from kjh_ru_dict import (
     find_word_dict,
     format_article,
     get_random_word_dict,
-    insert_letter,
     lookup_word,
     prepare_article,
     prepare_dict,
@@ -137,12 +136,3 @@ class TestGetRandomWordDict:
             assert word in kjh_ru_dict.word2article["kjh" if lang_in == "Хакасский" else "ru"]
             assert text == find_word_dict(word, lang_in)
             assert text != "Нет слова"
-
-
-class TestInsertLetter:
-    def test_appends_letter(self):
-        assert insert_letter("ӧ")("сӧ") == "сӧӧ"
-
-    def test_handles_empty_textbox(self):
-        assert insert_letter("і")(None) == "і"
-        assert insert_letter("і")("") == "і"

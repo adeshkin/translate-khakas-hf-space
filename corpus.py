@@ -9,6 +9,8 @@ import threading
 import gradio as gr
 from datasets import load_dataset
 
+from common import DEFAULT_LANG, LANG_MAP, lang_radio, langs_for, letter_buttons
+
 dict_hf_id = 'adeshkin/khakas-russian-parallel-corpus'
 ds = load_dataset(dict_hf_id, split='train')
 
@@ -20,8 +22,9 @@ CREATE_TABLE_SQL = ('CREATE VIRTUAL TABLE corpus USING fts5('
 
 WORD_RE = re.compile(r'[^\W\d_]+')
 
-lang_map = {'kjh': 'Хакасский',
-            'ru': 'Русский'}
+# Сколько раз пробуем угадать подходящую строку, прежде чем идти в перебор:
+# без предела случайный выбор мог бы крутиться бесконечно.
+MAX_RANDOM_TRIES = 50
 
 
 def dataset_fingerprint():
@@ -84,7 +87,7 @@ def quote_phrase(word):
 
 
 def get_sentence(lang, rowid):
-    # lang приходит только из lang_map, не из пользовательского ввода.
+    # lang приходит только из LANG_MAP, не из пользовательского ввода.
     row = get_connection().execute(f'SELECT {lang} FROM corpus WHERE rowid = ?',
                                    (rowid,)).fetchone()
 
@@ -93,30 +96,36 @@ def get_sentence(lang, rowid):
 
 def search_lang(lang, word, limit, prefix=False):
     query = f'{lang}:{quote_phrase(word)}' + ('*' if prefix else '')
-    rows = get_connection().execute('SELECT kjh, ru FROM corpus WHERE corpus MATCH ? LIMIT ?',
-                                    (query, limit)).fetchall()
 
-    return [f'{kjh_sent}\n\n{ru_sent}' if lang == 'kjh' else f'{ru_sent}\n\n{kjh_sent}'
-            for kjh_sent, ru_sent in rows]
+    return get_connection().execute(
+        'SELECT rowid, kjh, ru FROM corpus WHERE corpus MATCH ? LIMIT ?',
+        (query, limit)).fetchall()
 
 
 def search(langs, word, num_examples, prefix=False):
     examples = []
+    seen = set()
     for lang in langs:
-        examples.extend(search_lang(lang, word, num_examples - len(examples), prefix))
-        if len(examples) == num_examples:
-            break
+        # Лимит на каждый язык полный: у заимствований вроде «телефон» слово стоит
+        # по обе стороны пары, и без запаса дубли съели бы места под примеры.
+        for rowid, kjh_sent, ru_sent in search_lang(lang, word, num_examples, prefix):
+            if rowid in seen:
+                continue
+
+            seen.add(rowid)
+            examples.append(f'{kjh_sent}\n\n{ru_sent}' if lang == 'kjh'
+                            else f'{ru_sent}\n\n{kjh_sent}')
+            if len(examples) == num_examples:
+                return examples
 
     return examples
 
 
-def format_example(article):
-    if len(article) == 0:
+def format_example(examples):
+    if len(examples) == 0:
         return 'Нет слова в корпусе'
 
-    text = '\n\n---\n\n'.join(article)
-
-    return text
+    return '\n\n---\n\n'.join(examples)
 
 
 def find_word_corpus(word, lang_in, num_examples=5):
@@ -125,10 +134,7 @@ def find_word_corpus(word, lang_in, num_examples=5):
         gr.Warning("Введите слово")
         return ""
 
-    if lang_in == 'Хакасский/Русский':
-        langs = ['kjh', 'ru']
-    else:
-        langs = ['ru'] if lang_in == 'Русский' else ['kjh']
+    langs = langs_for(lang_in)
 
     note = ''
     examples = search(langs, word, num_examples)
@@ -141,50 +147,48 @@ def find_word_corpus(word, lang_in, num_examples=5):
 
 
 def get_random_kjh_example(max_text_len):
-    sent = ''
-    while len(sent) == 0 or len(sent) > max_text_len:
+    for _ in range(MAX_RANDOM_TRIES):
         sent = get_sentence('kjh', random.randint(1, num_rows))
+        if 0 < len(sent) <= max_text_len:
+            return sent
 
-    return sent
+    # Случайные попытки могли не угадать: добираем первым же подходящим примером.
+    row = get_connection().execute(
+        'SELECT kjh FROM corpus WHERE length(kjh) BETWEEN 1 AND ? LIMIT 1',
+        (max_text_len,)).fetchone()
+    if row is None:
+        raise ValueError(f'В корпусе нет предложений короче {max_text_len} символов')
+
+    return row[0]
 
 
 def get_random_word_corpus():
-    lang = random.choice(list(lang_map.keys()))
+    lang = random.choice(list(LANG_MAP.keys()))
     words = []
-    while len(words) == 0:
+    for _ in range(MAX_RANDOM_TRIES):
         words = WORD_RE.findall(get_sentence(lang, random.randint(1, num_rows)).lower())
+        if len(words) > 0:
+            break
+    else:
+        raise ValueError('В корпусе не нашлось ни одного слова')
 
     word = random.choice(words)
-    lang_in = lang_map[lang]
+    lang_in = LANG_MAP[lang]
     text = find_word_corpus(word, lang_in)
 
     return word, lang_in, text
 
 
-def insert_letter(letter):
-    def _insert(text):
-        return (text or "") + letter
-
-    return _insert
-
-
 with gr.Blocks(title="Корпус") as corpus_interface:
-    gr.Markdown("## Корпус")
+    gr.Markdown("Корпус")
 
     with gr.Row():
         with gr.Column():
             text_input = gr.Textbox(label="Слово",
                                     placeholder="Введите слово")
-            with gr.Row(elem_classes="khakas-letters"):
-                for letter in "іғңҷӧӱ":
-                    letter_btn = gr.Button(letter, size="sm", scale=0)
-                    letter_btn.click(insert_letter(letter), inputs=text_input, outputs=text_input)
+            letter_buttons(text_input)
 
-            lang_input = gr.Radio(
-                choices=["Хакасский", "Русский", "Хакасский/Русский"],
-                value="Хакасский",
-                label="Язык"
-            )
+            lang_input = lang_radio()
 
             with gr.Row():
                 submit_btn = gr.Button("Найти", variant="primary")
@@ -202,6 +206,6 @@ with gr.Blocks(title="Корпус") as corpus_interface:
     random_btn.click(fn=get_random_word_corpus,
                      inputs=None,
                      outputs=[text_input, lang_input, corpus_output])
-    clear_btn.click(fn=lambda: ("", "Хакасский", ""),
+    clear_btn.click(fn=lambda: ("", DEFAULT_LANG, ""),
                     inputs=None,
                     outputs=[text_input, lang_input, corpus_output])

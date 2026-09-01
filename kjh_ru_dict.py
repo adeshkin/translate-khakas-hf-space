@@ -3,6 +3,8 @@ from datasets import load_dataset
 import random
 import re
 
+from common import DEFAULT_LANG, LANG_MAP, lang_radio, langs_for, letter_buttons
+
 SPLIT_RE = re.compile(r'([;:])\s*(?!\s)(?=[\W\d_])')
 NUM_RE = re.compile(r'(?<!<b>)(?<!<i>)(?<!<br>)(?<!\s)(?<!\d)\s*(?=1[.)])')
 JOIN_RE = re.compile(r'(\d+\.(?:</[ib]>)*)<br>(?=\d+\))')
@@ -32,9 +34,6 @@ def prepare_dict():
 
 word2article = prepare_dict()
 
-lang_map = {'kjh': 'Хакасский',
-            'ru': 'Русский'}
-
 
 def split_tag(match):
     tag, inner = match.group(1), match.group(2)
@@ -58,9 +57,7 @@ def format_article(articles):
     if len(articles) == 0:
         return 'Нет слова'
 
-    text = '\n\n---\n\n'.join(prepare_article(article) for article in articles)
-
-    return text
+    return '\n\n---\n\n'.join(prepare_article(article) for article in articles)
 
 
 def lookup_word(word, lang):
@@ -84,10 +81,7 @@ def find_word_dict(word, lang_in):
         gr.Warning("Введите слово")
         return ""
 
-    if lang_in == 'Хакасский/Русский':
-        langs = ['kjh', 'ru']
-    else:
-        langs = ['ru'] if lang_in == 'Русский' else ['kjh']
+    langs = langs_for(lang_in)
 
     articles = []
     stems = []
@@ -106,19 +100,12 @@ def find_word_dict(word, lang_in):
 
 
 def get_random_word_dict():
-    lang = random.choice(list(lang_map.keys()))
+    lang = random.choice(list(LANG_MAP.keys()))
     word = random.choice(list(word2article[lang].keys()))
-    lang_in = lang_map[lang]
+    lang_in = LANG_MAP[lang]
     text = find_word_dict(word, lang_in)
 
     return word, lang_in, text
-
-
-def insert_letter(letter):
-    def _insert(text):
-        return (text or "") + letter
-
-    return _insert
 
 
 with gr.Blocks(title="Словарь") as dict_interface:
@@ -128,16 +115,9 @@ with gr.Blocks(title="Словарь") as dict_interface:
         with gr.Column():
             text_input = gr.Textbox(label="Слово",
                                     placeholder="Введите слово")
-            with gr.Row(elem_classes="khakas-letters"):
-                for letter in "іғңҷӧӱ":
-                    letter_btn = gr.Button(letter, size="sm", scale=0)
-                    letter_btn.click(insert_letter(letter), inputs=text_input, outputs=text_input)
+            letter_buttons(text_input)
 
-            lang_input = gr.Radio(
-                choices=["Хакасский", "Русский", "Хакасский/Русский"],
-                value="Хакасский",
-                label="Язык"
-            )
+            lang_input = lang_radio()
 
             with gr.Row():
                 submit_btn = gr.Button("Найти", variant="primary")
@@ -156,6 +136,6 @@ with gr.Blocks(title="Словарь") as dict_interface:
     random_btn.click(fn=get_random_word_dict,
                      inputs=None,
                      outputs=[text_input, lang_input, dict_output])
-    clear_btn.click(fn=lambda: ("", "Хакасский", ""),
+    clear_btn.click(fn=lambda: ("", DEFAULT_LANG, ""),
                     inputs=None,
                     outputs=[text_input, lang_input, dict_output])

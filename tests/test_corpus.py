@@ -93,6 +93,11 @@ class TestFindWordCorpus:
     def test_exact_match_wins_over_prefix(self):
         assert "Точных совпадений нет" not in find_word_corpus("книга", "Хакасский")
 
+    def test_shows_pair_once_when_word_is_on_both_sides(self):
+        text = find_word_corpus("телефон", "Хакасский/Русский")
+
+        assert text.count("Мин телефон алғам.") == 1
+
     def test_reports_unknown_word(self):
         assert find_word_corpus("абырақ", "Хакасский") == "Нет слова в корпусе"
 
@@ -115,6 +120,17 @@ class TestGetRandomKjhExample:
 
         assert get_random_kjh_example(300) in sentences
 
+    def test_falls_back_to_scan_when_random_tries_run_out(self, monkeypatch):
+        monkeypatch.setattr(corpus, "MAX_RANDOM_TRIES", 0)
+
+        assert 0 < len(get_random_kjh_example(300)) <= 300
+
+    def test_reports_when_corpus_has_no_short_enough_sentence(self, monkeypatch):
+        monkeypatch.setattr(corpus, "MAX_RANDOM_TRIES", 0)
+
+        with pytest.raises(ValueError):
+            get_random_kjh_example(1)
+
 
 class TestGetRandomWordCorpus:
     def test_returns_word_language_and_its_examples(self):
@@ -126,3 +142,9 @@ class TestGetRandomWordCorpus:
             # слово взято из самого корпуса, поэтому пример обязан найтись точно
             assert text != "Нет слова в корпусе"
             assert "Точных совпадений нет" not in text
+
+    def test_gives_up_instead_of_looping_forever(self, monkeypatch):
+        monkeypatch.setattr(corpus, "MAX_RANDOM_TRIES", 0)
+
+        with pytest.raises(ValueError):
+            get_random_word_corpus()
