@@ -66,6 +66,8 @@ CUSTOM_CSS = f"""
 .khakas-letters > * {{
     flex: 0 0 auto !important;
     width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }}
 
 .khakas-letters button {{
