@@ -56,6 +56,22 @@ CUSTOM_CSS = f"""
     font-size: 19px;
 }}
 
+.khakas-letters {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: -0.5rem 0 0.75rem;
+}}
+
+.khakas-letters button {{
+    min-width: 2.3em;
+    max-width: 2.3em;
+    height: 1.9em;
+    padding: 0;
+    flex-grow: 0 !important;
+    font-size: 15px;
+}}
+
 .tk-footer {{
     display: flex;
     justify-content: center;
@@ -64,15 +80,16 @@ CUSTOM_CSS = f"""
 
 .social-link {{
     display: inline-flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.4rem;
-    color: var(--body-text-color-subdued);
-    text-decoration: none;
+    color: var(--body-text-color-subdued) !important;
+    text-decoration: none !important;
+    text-align: left;
     font-size: 1.15rem;
 }}
 
 .social-link:hover {{
-    color: #0077ff;
+    color: #0077ff !important;
 }}
 
 .social-link svg {{
@@ -95,10 +112,6 @@ FOOTER_HTML = f"""
 demo = gr.TabbedInterface([dict_interface, corpus_interface, tts_interface],
                           [dict_interface.title, corpus_interface.title, tts_interface.title],
                           title='TranslateKhak')
-# hello_world = gr.Interface(lambda name: "Hello " + name, "text", "text", api_name="predict", description='hello description')
-# bye_world = gr.Interface(lambda name: "Bye " + name, "text", "text", api_name="predict")
-# chat = gr.ChatInterface(lambda *args: "Hello " + args[0], api_name="chat")
-# demo = gr.TabbedInterface([hello_world, bye_world, chat], ["Hello World", "Bye World", "Chat"], title='TranslateKhak')
 
 with demo:
     gr.HTML(FOOTER_HTML)

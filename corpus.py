@@ -84,6 +84,13 @@ def get_random_word_corpus():
     return word, lang_in, text
 
 
+def insert_letter(letter):
+    def _insert(text):
+        return (text or "") + letter
+
+    return _insert
+
+
 with gr.Blocks(title="Корпус") as corpus_interface:
     gr.Markdown("## Корпус")
 
@@ -91,6 +98,10 @@ with gr.Blocks(title="Корпус") as corpus_interface:
         with gr.Column():
             text_input = gr.Textbox(label="Слово",
                                     placeholder="Введите слово")
+            with gr.Row(elem_classes="khakas-letters"):
+                for letter in "іғңҷӧӱ":
+                    letter_btn = gr.Button(letter, size="sm")
+                    letter_btn.click(insert_letter(letter), inputs=text_input, outputs=text_input)
 
             lang_input = gr.Radio(
                 choices=["Хакасский", "Русский", "Хакасский/Русский"],

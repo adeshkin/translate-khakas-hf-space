@@ -52,6 +52,13 @@ def random_text_to_speech():
     return sent, speaker, text_to_speech(sent, speaker)
 
 
+def insert_letter(letter):
+    def _insert(text):
+        return (text or "") + letter
+
+    return _insert
+
+
 with gr.Blocks(title="Озвучка") as tts_interface:
     gr.Markdown("Озвучка")
 
@@ -61,6 +68,10 @@ with gr.Blocks(title="Озвучка") as tts_interface:
                 label="Текст",
                 placeholder="Введите текст"
             )
+            with gr.Row(elem_classes="khakas-letters"):
+                for letter in "іғңҷӧӱ":
+                    letter_btn = gr.Button(letter, size="sm")
+                    letter_btn.click(insert_letter(letter), inputs=text_input, outputs=text_input)
 
             speaker_input = gr.Radio(
                 choices=["Сибдей", "Карина"],
