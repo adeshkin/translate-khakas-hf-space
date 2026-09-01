@@ -59,7 +59,7 @@ CUSTOM_CSS = f"""
 .khakas-letters {{
     display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
+    gap: 0.15rem;
     margin: -0.5rem 0 0.75rem;
 }}
 
@@ -71,14 +71,14 @@ CUSTOM_CSS = f"""
 }}
 
 .khakas-letters button {{
-    width: 2.6em !important;
-    min-width: 2.6em !important;
-    max-width: 2.6em !important;
-    height: 2em !important;
+    width: 2.8em !important;
+    min-width: 2.8em !important;
+    max-width: 2.8em !important;
+    height: 2.2em !important;
     padding: 0 !important;
     flex-grow: 0 !important;
     flex-shrink: 0 !important;
-    font-size: 15px;
+    font-size: 17px;
 }}
 
 .tk-footer {{
