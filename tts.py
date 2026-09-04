@@ -75,7 +75,16 @@ with gr.Blocks(title="Озвучка") as tts_interface:
                 clear_btn = gr.Button("Очистить")
 
         with gr.Column():
-            audio_output = gr.Audio(label="Аудио", type="numpy")
+            # По умолчанию прогресс на волне оранжевый — приводим его к зелёной
+            # теме приложения.
+            audio_output = gr.Audio(
+                label="Аудио",
+                type="numpy",
+                waveform_options=gr.WaveformOptions(
+                    waveform_color="#9ca3af",
+                    waveform_progress_color="#22c55e",
+                ),
+            )
 
     # Синтез упирается в CPU, а ядер всего два: больше одного за раз не запускаем.
     submit_btn.click(fn=text_to_speech,
