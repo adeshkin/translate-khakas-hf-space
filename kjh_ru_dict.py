@@ -26,13 +26,22 @@ def prepare_dict():
                          'ru': dict()}
     # Колонки берутся из Arrow целиком: построчный обход датасета на порядок дороже.
     for kjh_word, ru_word, article in zip(ds['word'], ds['semgloss'], ds['field1']):
-        word2dict_article['kjh'].setdefault(kjh_word.strip().lower(), []).append(article)
-        word2dict_article['ru'].setdefault(ru_word.strip().lower(), []).append(article)
+        for lang, word in (('kjh', kjh_word), ('ru', ru_word)):
+            word = word.strip().lower()
+            # Часть статей без перевода-глоссы: поиском пустой ключ не достать,
+            # а «Случайное слово» выбрало бы его и показало пустой ответ.
+            if len(word) == 0:
+                continue
+
+            word2dict_article[lang].setdefault(word, []).append(article)
 
     return word2dict_article
 
 
 word2article = prepare_dict()
+# Списки ключей нужны только «Случайному слову»: пересобирать их из словаря
+# на каждый клик — двадцать тысяч элементов впустую.
+lang_words = {lang: list(articles) for lang, articles in word2article.items()}
 
 
 def split_tag(match):
@@ -101,7 +110,7 @@ def find_word_dict(word, lang_in):
 
 def get_random_word_dict():
     lang = random.choice(list(LANG_MAP.keys()))
-    word = random.choice(list(word2article[lang].keys()))
+    word = random.choice(lang_words[lang])
     lang_in = LANG_MAP[lang]
     text = find_word_dict(word, lang_in)
 
@@ -109,7 +118,7 @@ def get_random_word_dict():
 
 
 with gr.Blocks(title="Словарь") as dict_interface:
-    gr.Markdown("Введите слово на хакасском или русском — покажем словарные статьи.")
+    gr.Markdown("Хакасско-русский словарь")
 
     with gr.Row():
         with gr.Column():

@@ -1,3 +1,15 @@
+# import os
+#
+# if os.environ.get("SPACE_ID"):
+#     import spaces
+#
+#     @spaces.GPU
+#     def zerogpu_startup_check_unused() -> bool:
+#         """Заглушка, требуемая HF Spaces: на хардвере ZeroGPU Space не стартует,
+#         если в коде нет ни одной функции с @spaces.GPU. Реальный функционал
+#         GPU не использует, эта функция никогда не вызывается."""
+#         return True
+
 import gradio as gr
 import os
 import urllib.parse
@@ -137,10 +149,18 @@ demo = gr.TabbedInterface([dict_interface, corpus_interface, tts_interface, link
                           [dict_interface.title, corpus_interface.title, tts_interface.title, links_interface.title],
                           title='TranslateKhak')
 
+
 with demo:
     gr.HTML(FOOTER_HTML)
 
 # Поиск теперь отвечает за доли миллисекунды, и очередь по умолчанию (один
 # запрос за раз) держала бы его за озвучкой; сама озвучка ограничена в tts.py.
 demo.queue(default_concurrency_limit=8)
-demo.launch(css=CUSTOM_CSS)
+
+THEME = gr.themes.Soft(
+    primary_hue="green",
+    secondary_hue="slate",
+    neutral_hue="slate",
+    radius_size=gr.themes.sizes.radius_lg,
+)
+demo.launch(css=CUSTOM_CSS, theme=THEME)

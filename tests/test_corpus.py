@@ -47,6 +47,11 @@ class TestFormatExample:
         assert format_example(["раз", "два"]) == "раз\n\n---\n\nдва"
 
 
+def example_set(text):
+    """Порядок примеров случайный, поэтому сравниваем подборки как множества."""
+    return {part.strip() for part in text.split("---")}
+
+
 class TestFindWordCorpus:
     def test_finds_khakas_word_with_translation(self):
         text = find_word_corpus("книга", "Хакасский")
@@ -60,7 +65,8 @@ class TestFindWordCorpus:
         assert "Мин Ағбанда чуртапчам." in text
 
     def test_ignores_case_and_spaces(self):
-        assert find_word_corpus(" КНИГА ", "Хакасский") == find_word_corpus("книга", "Хакасский")
+        assert example_set(find_word_corpus(" КНИГА ", "Хакасский")) == example_set(
+            find_word_corpus("книга", "Хакасский"))
 
     def test_language_filter_is_respected(self):
         assert find_word_corpus("живу", "Хакасский") == "Слово не найдено в корпусе"
@@ -74,6 +80,18 @@ class TestFindWordCorpus:
         text = find_word_corpus("книга", "Хакасский", num_examples=2)
 
         assert len(text.split("---")) == 2
+
+    def test_picks_examples_at_random(self):
+        # у «книга» примеров в корпусе больше, чем просят: подборки должны различаться
+        texts = {find_word_corpus("книга", "Хакасский", num_examples=2) for _ in range(30)}
+
+        assert len(texts) > 1
+
+    def test_shows_ten_examples_by_default(self):
+        # строк с «чазыда» в корпусе больше десяти — подборка должна оборваться
+        text = find_word_corpus("чазыда", "Хакасский")
+
+        assert len(text.split("---")) == 10
 
     def test_does_not_match_part_of_another_word(self):
         assert "Аның книгазы стол ӱстӱнде." not in find_word_corpus("книга", "Хакасский")
@@ -138,9 +156,9 @@ class TestGetRandomWordCorpus:
             word, lang_in, text = get_random_word_corpus()
 
             assert lang_in in {"Хакасский", "Русский"}
-            assert text == find_word_corpus(word, lang_in)
             # слово взято из самого корпуса, поэтому пример обязан найтись точно
             assert text != "Слово не найдено в корпусе"
+            assert f"<b>{word}</b>" in text.lower()
             assert "Точных совпадений нет" not in text
 
     def test_gives_up_instead_of_looping_forever(self, monkeypatch):

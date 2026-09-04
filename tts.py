@@ -22,11 +22,11 @@ SPEAKER2MODEL_SPEAKER = {'Карина': 'kjh_karina',
 def text_to_speech(text, speaker):
     text = text.strip().lower()
     if len(text) == 0:
-        gr.Warning("Введите текст")
+        gr.Warning(f"Введите текст до {MAX_TEXT_LEN} символов")
         return None
 
     if len(text) > MAX_TEXT_LEN:
-        gr.Warning(f"Слишком длинный текст: {len(text)} символов, максимум {MAX_TEXT_LEN}")
+        gr.Warning(f"Текст слишком длинный: {len(text)} символов, максимум — {MAX_TEXT_LEN}. Нужно укоротить текст минимум на {len(text) - MAX_TEXT_LEN} символов")
         return None
 
     model_speaker = SPEAKER2MODEL_SPEAKER.get(speaker, None)
@@ -54,24 +54,24 @@ def random_text_to_speech():
 
 
 with gr.Blocks(title="Озвучка") as tts_interface:
-    gr.Markdown("Введите текст на хакасском и выберите голос — получите аудио.")
+    gr.Markdown("Синтез речи на хакасском языке")
 
     with gr.Row():
         with gr.Column():
             text_input = gr.Textbox(
                 label="Текст",
-                placeholder=f"Текст на хакасском, до {MAX_TEXT_LEN} символов"
+                placeholder=f"Текст на хакасском до {MAX_TEXT_LEN} символов"
             )
             letter_buttons(text_input)
 
             speaker_input = gr.Radio(
-                choices=[("Сибдей (мужской)", "Сибдей"), ("Карина (женский)", "Карина")],
+                choices=["Сибдей", "Карина"],
                 value="Сибдей",
                 label="Голос"
             )
             with gr.Row():
                 submit_btn = gr.Button("Озвучить", variant="primary")
-                random_btn = gr.Button("Случайное предложение")
+                random_btn = gr.Button("Случайный текст")
                 clear_btn = gr.Button("Очистить")
 
         with gr.Column():

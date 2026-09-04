@@ -16,8 +16,16 @@ class TestPrepareDict:
         word2article = prepare_dict()
 
         assert set(word2article) == {"kjh", "ru"}
-        assert set(word2article["kjh"]) == {"ағас", "книга"}
+        assert set(word2article["kjh"]) == {"ағас", "книга", "сӧс"}
         assert set(word2article["ru"]) == {"дерево", "древесина", "книга"}
+
+    def test_skips_articles_without_gloss(self):
+        # у статьи «сӧс» глоссы нет: пустой ключ не должен попасть в индекс,
+        # иначе «Случайное слово» может выбрать его и показать пустой ответ
+        word2article = prepare_dict()
+
+        assert "" not in word2article["ru"]
+        assert "сӧс" in word2article["kjh"]
 
     def test_merges_articles_of_same_word_ignoring_case(self):
         word2article = prepare_dict()

@@ -26,6 +26,9 @@ WORD_RE = re.compile(r'[^\W\d_]+')
 # без предела случайный выбор мог бы крутиться бесконечно.
 MAX_RANDOM_TRIES = 50
 
+# Сколько примеров показываем на одно слово.
+NUM_EXAMPLES = 10
+
 
 def dataset_fingerprint():
     parts = (getattr(ds, '_fingerprint', ''), repr(getattr(ds, 'cache_files', '')), len(ds))
@@ -97,8 +100,10 @@ def get_sentence(lang, rowid):
 def search_lang(lang, word, limit, prefix=False):
     query = f'{lang}:{quote_phrase(word)}' + ('*' if prefix else '')
 
+    # ORDER BY RANDOM(): на каждый поиск подборка примеров новая. Даже у самых
+    # частых слов совпадений десятки тысяч, и перебор занимает единицы миллисекунд.
     return get_connection().execute(
-        'SELECT rowid, kjh, ru FROM corpus WHERE corpus MATCH ? LIMIT ?',
+        'SELECT rowid, kjh, ru FROM corpus WHERE corpus MATCH ? ORDER BY RANDOM() LIMIT ?',
         (query, limit)).fetchall()
 
 
@@ -143,7 +148,7 @@ def format_example(examples):
     return '\n\n---\n\n'.join(examples)
 
 
-def find_word_corpus(word, lang_in, num_examples=5):
+def find_word_corpus(word, lang_in, num_examples=NUM_EXAMPLES):
     word = word.strip().lower()
     if len(word) == 0:
         gr.Warning("Введите слово")
@@ -196,7 +201,7 @@ def get_random_word_corpus():
 
 
 with gr.Blocks(title="Примеры") as corpus_interface:
-    gr.Markdown("Введите слово — покажем предложения из хакасско-русского корпуса с переводом.")
+    gr.Markdown("Хакасско-русский корпус")
 
     with gr.Row():
         with gr.Column():

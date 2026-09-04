@@ -39,10 +39,18 @@ def test_launch_gets_custom_css(app_module):
     assert "khakas-letters" in kwargs["css"]
 
 
-def test_launch_accepts_css_argument():
-    # css передаётся в launch(), а не в конструктор Blocks — проверяем, что
-    # установленная версия gradio такой аргумент поддерживает.
-    assert "css" in inspect.signature(gr.Blocks.launch).parameters
+def test_launch_gets_theme(app_module):
+    _, kwargs = app_module.launch_calls[0]
+
+    assert isinstance(kwargs["theme"], gr.themes.Base)
+
+
+def test_launch_accepts_css_and_theme_arguments():
+    # css и theme передаются в launch(), а не в конструктор Blocks — проверяем,
+    # что установленная версия gradio такие аргументы поддерживает.
+    params = inspect.signature(gr.Blocks.launch).parameters
+
+    assert {"css", "theme"} <= set(params)
 
 
 def test_tabs_are_in_expected_order(app_module):
