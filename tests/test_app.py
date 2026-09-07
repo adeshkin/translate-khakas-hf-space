@@ -23,6 +23,8 @@ def app_module(monkeypatch):
     sys.modules.pop("app", None)
     try:
         module = importlib.import_module("app")
+        assert launch_calls == []
+        module.main()
         module.launch_calls = launch_calls
         yield module
     finally:
@@ -82,3 +84,28 @@ def test_all_links_are_absolute_urls():
     assert urls
     for url in urls:
         assert url.startswith("https://"), url
+
+
+def test_daily_counters_track_only_action_buttons(app_module):
+    for interface, expected in [
+        (app_module.dict_interface, {"Найти", "Случайное слово"}),
+        (app_module.corpus_interface, {"Найти", "Случайное слово"}),
+        (app_module.tts_interface, {"Озвучить", "Случайный текст"}),
+        (app_module.links_interface, {
+            f"{icon}  {title}"
+            for _, links in about.LINK_GROUPS for icon, title, _, _ in links
+        }),
+    ]:
+        config = interface.get_config_file()
+        components = {c["id"]: c for c in config["components"]}
+        counters = [c for c in components.values()
+                    if "daily-counter" in (c["props"].get("elem_classes") or [])]
+        assert len(counters) == 1
+        clicks = [d for d in config["dependencies"]
+                  if d["outputs"] == [counters[0]["id"]]
+                  and all(event == "click" for _, event in d["targets"])]
+        assert len(clicks) == 1
+        assert clicks[0]["queue"] is False
+        assert clicks[0]["trigger_mode"] == "multiple"
+        assert {components[id_]["props"]["value"]
+                for id_, _ in clicks[0]["targets"]} == expected

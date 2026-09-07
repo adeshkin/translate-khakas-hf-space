@@ -3,5 +3,5 @@
 # поэтому здесь их нет — тестам не нужны ни сеть, ни модель.
 # Версия gradio должна совпадать с sdk_version в README.md.
 gradio==6.26.0
-numpy
-pytest
+numpy==2.5.2
+pytest==9.1.1

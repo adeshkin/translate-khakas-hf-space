@@ -48,6 +48,7 @@ so you can create the same thing for your own low-resource language.
 - [Step 9 — CI: GitHub → Hugging Face sync](#step-9--ci-github--hugging-face-sync)
 - [Run locally](#run-locally)
 - [Performance notes](#performance-notes)
+- [TODO](#todo)
 - [Project links](#project-links)
 
 ---
@@ -118,7 +119,9 @@ short_description: khakas dict | corpus | tts
 
 ```
 gradio==6.26.0
-datasets
+datasets==5.0.1
+huggingface-hub==1.29.0
+numpy==2.5.2
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.13.0
 ```
@@ -133,8 +136,12 @@ Publish your data as Hugging Face datasets and load them at import time:
 ```python
 from datasets import load_dataset
 
-ds = load_dataset('adeshkin/khakas-russian-dict', split='train')
+ds = load_dataset('adeshkin/khakas-russian-dict', split='train',
+                  revision='552fd83dae6cf41d93029af21d8e5223398566d3')
 ```
+
+Both datasets and the TTS model are pinned to commit revisions in their modules.
+Update these revisions deliberately and run the real-data smoke test before deploying.
 
 Two datasets power this app:
 
@@ -173,6 +180,9 @@ does not degrade into nonsense:
 MIN_STEM_LEN = 3        # never search shorter than this
 MAX_SUFFIX_LEN = 6      # never strip more than this
 ```
+
+Exact matches are checked across all selected languages before trying stems.
+Identical articles are displayed once, including in bilingual search.
 
 When a stem (not the exact word) matched, the answer is prefixed with a note telling the
 user which entry is being shown.
@@ -224,11 +234,14 @@ Key techniques in [`corpus.py`](corpus.py):
 ## Step 5 — TTS tab
 
 The voice model is a Silero package pulled from the Hub and loaded with
-`torch.package`:
+`torch.package` on the first valid synthesis request. `get_model()` serializes loading
+and caches the model; a failed load shows a friendly error and allows retry after
+60 seconds. Dictionary and corpus remain usable if the model cannot be loaded:
 
 ```python
 model_path = hf_hub_download(repo_id='adeshkin/silero-models-v5-cis-base-nostress',
-                             filename='v5_cis_base_nostress.pt')
+                             filename='v5_cis_base_nostress.pt',
+                             revision=MODEL_REVISION)
 model = torch.package.PackageImporter(model_path).load_pickle("tts_models", "model")
 model.to(torch.device("cpu"))
 ```
@@ -249,7 +262,8 @@ plus a `None` return — the user gets a toast instead of a stack trace.
 capped while search stays parallel:
 
 ```python
-submit_btn.click(fn=text_to_speech, ..., concurrency_limit=1)
+submit_btn.click(fn=text_to_speech, ..., concurrency_limit=1, concurrency_id="tts")
+random_btn.click(fn=random_text_to_speech, ..., concurrency_limit=1, concurrency_id="tts")
 ```
 
 ## Step 6 — Links tab
@@ -257,16 +271,9 @@ submit_btn.click(fn=text_to_speech, ..., concurrency_limit=1)
 [`about.py`](about.py) is pure data: a list of `(section, [(icon, title, description, url)])`
 rendered as link buttons.
 
-```python
-with gr.Blocks(title="Ссылки") as links_interface:
-    for group_title, group_links in LINK_GROUPS:
-        gr.Markdown(f"### {group_title}")
-        with gr.Row(equal_height=True):
-            for icon, link_title, link_desc, link_url in group_links:
-                gr.Button(f"{icon}  {link_title}", link=link_url, variant="secondary", size="lg")
-```
-
-`gr.Button(link=...)` renders an anchor — no callback, no server round-trip.
+Each button opens its URL in a new browser tab with a client-side callback and
+increments the shared daily Links counter with a separate server callback.
+`daily_usage.py` provides the counter widget used by all four tabs.
 
 ## Step 7 — Assemble app.py
 
@@ -287,8 +294,8 @@ with gr.Blocks(title="Ссылки") as links_interface:
    Target your own elements with `elem_classes=` (e.g. `elem_classes="result-output"`) —
    never rely on Gradio's internal class names.
 
-3. **Queue settings.** Search answers in fractions of a millisecond, so the default
-   one-at-a-time queue would make it wait behind synthesis:
+3. **Queue settings.** Each search handler can serve up to eight requests concurrently.
+   Both synthesis handlers share a separate group limited to one request:
 
    ```python
    demo.queue(default_concurrency_limit=8)
@@ -344,8 +351,8 @@ Notes:
 
 ## Step 8 — Tests without network or models
 
-Every module downloads a dataset or a model *at import time*, which would make tests slow,
-flaky and offline-hostile. [`conftest.py`](conftest.py) installs fakes into `sys.modules`
+The search modules load datasets at import time; TTS loads its model on first use.
+Using real resources in unit tests would make them slow, flaky and offline-hostile. [`conftest.py`](conftest.py) installs fakes into `sys.modules`
 **before** pytest imports the test modules: a `FakeDataset` backed by a handful of
 hand-written rows, a stub `torch` (including `torch.package`) and a fake `hf_hub_download`.
 
@@ -360,13 +367,27 @@ Dev dependencies stay minimal — no `datasets`, no `torch`:
 
 ```
 gradio==6.26.0
-numpy
-pytest
+numpy==2.5.2
+pytest==9.1.1
 ```
 
 ```bash
 pip install -r requirements-dev.txt && pytest
 ```
+
+### Integration check with real resources
+
+```bash
+pip install -r requirements.txt
+python scripts/smoke_test.py
+```
+
+This separate process avoids pytest's stubs, builds the actual application without
+launching a server, queries both datasets, and synthesizes nonempty audio with both
+voices. It requires network access or an existing Hugging Face cache. With a populated
+cache, use `HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 python scripts/smoke_test.py`.
+The GitHub Actions workflow **Real data and TTS smoke test** can also be run manually.
+This checks operation, not perceptual pronunciation quality or load capacity.
 
 ## Step 9 — CI: GitHub → Hugging Face sync
 
@@ -433,9 +454,49 @@ Worth keeping in mind if you adapt this for your own language:
 | Rebuilding the index on every start | Cache the DB file, name it by schema version + dataset fingerprint |
 | Half-built DB read by another worker | Build into a temp file, then `os.replace()` |
 | SQLite connections across Gradio threads | `threading.local()` connection per thread |
-| Slow search behind slow synthesis | `demo.queue(default_concurrency_limit=8)` + `concurrency_limit=1` on TTS events |
+| Concurrent synthesis overloads CPU | Both TTS events use `concurrency_id="tts"`, `concurrency_limit=1`; search has separate queues |
 | Rebuilding key lists for "random word" | Materialise them once at startup |
 | Regex cost per request | Compile every pattern at module level |
+
+## TODO
+
+Planned work on the app and the data — in rough order of usefulness.
+
+- [ ] **Decide whether to switch the TTS to the stressed Silero model.** The Space runs
+      [`adeshkin/silero-models-v5-cis-base-nostress`](https://huggingface.co/adeshkin/silero-models-v5-cis-base-nostress),
+      a model trained without stress marks. The `v5-cis-base` variant expects stress
+      (`+`) in the input, and a Khakas stress dictionary is available — so it could be
+      wired in as: word → stress dictionary → stressed text → model. Worth measuring
+      first: does the stressed model actually sound better on Khakas, and what happens on
+      out-of-dictionary word forms (Khakas suffixes move the stress)? If the fallback for
+      unknown forms is bad, staying on the nostress model is the safer choice.
+- [ ] **Show the source of every corpus example.** The Examples tab prints a sentence pair
+      with no attribution. Add a `source` column (work title, author, year) to
+      [`adeshkin/khakas-russian-parallel-corpus`](https://huggingface.co/datasets/adeshkin/khakas-russian-parallel-corpus),
+      carry it into the FTS5 table in [`corpus.py`](corpus.py) (an extra unindexed column
+      via `UNINDEXED`, so it does not affect matching) and render it under each example.
+- [ ] **Add a Khakas monolingual corpus.** Today only the parallel corpus is searchable, so
+      any Khakas sentence without a Russian translation is invisible. Publish a
+      Khakas-only sentence dataset and search it alongside the parallel one — this widens
+      example coverage a lot for rare words.
+- [ ] **Document the source of the dictionary.** The README and the Links tab point to
+      [`adeshkin/khakas-russian-dict`](https://huggingface.co/datasets/adeshkin/khakas-russian-dict)
+      but never say *which* dictionary it is. Name the edition (title, compilers,
+      publisher, year), state the licence/permission to republish, and repeat it in the
+      dataset card and on the Links tab.
+- [x] **Public daily action counters per tab.** Dictionary and corpus count Find and
+      Random word clicks; TTS counts Speak and Random text clicks; Links counts clicks
+      on its listed links (opened in a new tab). Each tab displays only its own total
+      for all visitors, refreshed every 30 seconds and immediately after their own click.
+      These are click counts, including empty inputs and failed actions, not completed
+      searches or successful synthesis counts. SQLite shares totals across processes
+      using the same file and preserves them across process restarts. The displayed day
+      follows Abakan (`Asia/Krasnoyarsk`, UTC+7); old days are removed on the next click.
+      The default file is `/data/translatekhak-usage.sqlite3` when `/data` exists,
+      otherwise `translatekhak-usage.sqlite3` in the system temporary directory.
+      Set `DAILY_USAGE_DB` to an existing writable persistent directory's file path
+      to preserve counts across container replacements. Temporary storage does not
+      survive container replacement; no individual click history or user data is stored.
 
 ## Project links
 

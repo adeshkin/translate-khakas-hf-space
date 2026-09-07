@@ -108,6 +108,20 @@ CUSTOM_CSS = f"""
 }}
 
 
+.gradio-container .daily-counter {{
+    padding: 2px 0;
+    min-height: 0;
+    color: var(--body-text-color-subdued);
+}}
+
+.gradio-container .daily-counter.prose,
+.gradio-container .daily-counter .prose,
+.gradio-container .daily-counter p {{
+    font-size: 13px;
+    line-height: 1.4;
+    margin: 0;
+}}
+
 .tk-footer {{
     display: flex;
     justify-content: center;
@@ -153,8 +167,8 @@ demo = gr.TabbedInterface([dict_interface, corpus_interface, tts_interface, link
 with demo:
     gr.HTML(FOOTER_HTML)
 
-# Поиск теперь отвечает за доли миллисекунды, и очередь по умолчанию (один
-# запрос за раз) держала бы его за озвучкой; сама озвучка ограничена в tts.py.
+# Каждый поисковый обработчик допускает до восьми параллельных запросов.
+# Оба обработчика озвучки используют отдельную общую группу с лимитом 1 в tts.py.
 demo.queue(default_concurrency_limit=8)
 
 THEME = gr.themes.Soft(
@@ -163,4 +177,9 @@ THEME = gr.themes.Soft(
     neutral_hue="slate",
     radius_size=gr.themes.sizes.radius_lg,
 )
-demo.launch(css=CUSTOM_CSS, theme=THEME)
+def main():
+    demo.launch(css=CUSTOM_CSS, theme=THEME)
+
+
+if __name__ == "__main__":
+    main()

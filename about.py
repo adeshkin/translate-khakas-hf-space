@@ -1,3 +1,6 @@
+from daily_usage import daily_counter
+import json
+
 import gradio as gr
 
 VK_URL = "https://vk.ru/translate_khakas"
@@ -36,8 +39,16 @@ LINK_GROUPS = [
 ]
 
 with gr.Blocks(title="Ссылки") as links_interface:
+    link_buttons = []
     for group_title, group_links in LINK_GROUPS:
         gr.Markdown(f"### {group_title}")
         with gr.Row(equal_height=True):
             for icon, link_title, link_desc, link_url in group_links:
-                gr.Button(f"{icon}  {link_title}", link=link_url, variant="secondary", size="lg")
+                button = gr.Button(f"{icon}  {link_title}", variant="secondary", size="lg")
+                button.click(
+                    fn=None,
+                    js=f"() => {{ window.open({json.dumps(link_url)}, '_blank', 'noopener,noreferrer'); }}",
+                )
+                link_buttons.append(button)
+
+    daily_counter("links", link_buttons)

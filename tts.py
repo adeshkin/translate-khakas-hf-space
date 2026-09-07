@@ -1,4 +1,7 @@
-import torch
+from daily_usage import daily_counter
+import logging
+from threading import Lock
+from time import monotonic
 from huggingface_hub import hf_hub_download
 import gradio as gr
 import random
@@ -7,11 +10,35 @@ import numpy as np
 from common import letter_buttons
 from corpus import get_random_kjh_example
 
-device = torch.device("cpu")
-model_path = hf_hub_download(repo_id='adeshkin/silero-models-v5-cis-base-nostress',
-                             filename='v5_cis_base_nostress.pt')
-model = torch.package.PackageImporter(model_path).load_pickle("tts_models", "model")
-model.to(device)
+MODEL_REVISION = '7562e8eaf24cf8ed9f42c4b9bd67b88661ce33d4'
+model = None
+_model_lock = Lock()
+_retry_after = 0.0
+logger = logging.getLogger(__name__)
+
+
+def get_model():
+    """Load on first use; failed downloads never prevent the other tabs starting."""
+    global model, _retry_after
+    with _model_lock:
+        if model is not None:
+            return model
+        if monotonic() < _retry_after:
+            raise gr.Error("Озвучка временно недоступна. Повторите попытку через минуту.")
+        try:
+            import torch
+
+            model_path = hf_hub_download(
+                repo_id='adeshkin/silero-models-v5-cis-base-nostress',
+                filename='v5_cis_base_nostress.pt', revision=MODEL_REVISION)
+            loaded = torch.package.PackageImporter(model_path).load_pickle("tts_models", "model")
+            loaded.to(torch.device("cpu"))
+            model = loaded
+        except Exception as exc:
+            _retry_after = monotonic() + 60
+            logger.exception("Could not load TTS model")
+            raise gr.Error("Озвучка временно недоступна. Повторите попытку через минуту.") from exc
+        return model
 
 SAMPLE_RATE = 48000
 MAX_TEXT_LEN = 300
@@ -35,7 +62,7 @@ def text_to_speech(text, speaker):
                    f"{', '.join(SPEAKER2MODEL_SPEAKER)}")
         return None
 
-    audio_tensor = model.apply_tts(text=text,
+    audio_tensor = get_model().apply_tts(text=text,
                                    speaker=model_speaker,
                                    sample_rate=SAMPLE_RATE)
 
@@ -90,11 +117,13 @@ with gr.Blocks(title="Озвучка") as tts_interface:
     submit_btn.click(fn=text_to_speech,
                      inputs=[text_input, speaker_input],
                      outputs=audio_output,
-                     concurrency_limit=1)
+                     concurrency_limit=1, concurrency_id="tts")
     random_btn.click(fn=random_text_to_speech,
                      inputs=None,
                      outputs=[text_input, speaker_input, audio_output],
-                     concurrency_limit=1)
+                     concurrency_limit=1, concurrency_id="tts")
     clear_btn.click(fn=lambda: ("", "Сибдей", None),
                     inputs=None,
                     outputs=[text_input, speaker_input, audio_output])
+
+    daily_counter("tts", [submit_btn, random_btn])

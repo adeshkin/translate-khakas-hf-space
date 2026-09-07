@@ -1,3 +1,4 @@
+from daily_usage import daily_counter
 import hashlib
 import os
 import random
@@ -12,7 +13,8 @@ from datasets import load_dataset
 from common import DEFAULT_LANG, LANG_MAP, lang_radio, langs_for, letter_buttons
 
 dict_hf_id = 'adeshkin/khakas-russian-parallel-corpus'
-ds = load_dataset(dict_hf_id, split='train')
+DATASET_REVISION = '5d207a43341304fa101a274b046ad8dc05279223'
+ds = load_dataset(dict_hf_id, split='train', revision=DATASET_REVISION)
 
 # Версия схемы входит в имя файла базы: при её изменении база собирается заново.
 DB_SCHEMA_VERSION = 1
@@ -231,3 +233,5 @@ with gr.Blocks(title="Примеры") as corpus_interface:
     clear_btn.click(fn=lambda: ("", DEFAULT_LANG, ""),
                     inputs=None,
                     outputs=[text_input, lang_input, corpus_output])
+
+    daily_counter("corpus", [submit_btn, random_btn])

@@ -1,5 +1,7 @@
 # Версия gradio должна совпадать с sdk_version в README.md.
 gradio==6.26.0
-datasets
+datasets==5.0.1
+huggingface-hub==1.29.0
+numpy==2.5.2
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.13.0

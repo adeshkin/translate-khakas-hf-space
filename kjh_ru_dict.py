@@ -1,3 +1,4 @@
+from daily_usage import daily_counter
 import gradio as gr
 from datasets import load_dataset
 import random
@@ -18,7 +19,8 @@ MIN_STEM_LEN = 3
 MAX_SUFFIX_LEN = 6
 
 dict_hf_id = 'adeshkin/khakas-russian-dict'
-ds = load_dataset(dict_hf_id, split='train')
+DATASET_REVISION = '552fd83dae6cf41d93029af21d8e5223398566d3'
+ds = load_dataset(dict_hf_id, split='train', revision=DATASET_REVISION)
 
 
 def prepare_dict():
@@ -95,12 +97,15 @@ def find_word_dict(word, lang_in):
     articles = []
     stems = []
     for lang in langs:
-        stem, lang_articles = lookup_word(word, lang)
-        articles.extend(lang_articles)
-        if stem is not None and stem != word:
-            stems.append(stem)
+        articles.extend(word2article[lang].get(word, []))
+    if not articles:
+        for lang in langs:
+            stem, lang_articles = lookup_word(word, lang)
+            articles.extend(lang_articles)
+            if stem is not None:
+                stems.append(stem)
 
-    text = format_article(articles)
+    text = format_article(list(dict.fromkeys(articles)))
     if len(stems) > 0:
         found = ', '.join(f'«{stem}»' for stem in dict.fromkeys(stems))
         text = f'*Точного совпадения нет. Показываем статьи для {found}.*\n\n{text}'
@@ -148,3 +153,5 @@ with gr.Blocks(title="Словарь") as dict_interface:
     clear_btn.click(fn=lambda: ("", DEFAULT_LANG, ""),
                     inputs=None,
                     outputs=[text_input, lang_input, dict_output])
+
+    daily_counter("dictionary", [submit_btn, random_btn])

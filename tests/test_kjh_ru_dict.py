@@ -90,7 +90,22 @@ class TestFindWordDict:
     def test_searches_both_languages(self):
         text = find_word_dict("книга", "Хакасский/Русский")
 
-        assert text.count("---") == 1
+        assert text.count("<b>книга</b>") == 1
+        assert "---" not in text
+
+    @pytest.mark.parametrize("exact_lang, fallback_lang", [("kjh", "ru"), ("ru", "kjh")])
+    def test_exact_match_in_either_language_prevents_stem_fallback(
+        self, monkeypatch, exact_lang, fallback_lang
+    ):
+        monkeypatch.setitem(kjh_ru_dict.word2article, exact_lang, {"книгами": ["EXACT"]})
+        monkeypatch.setitem(kjh_ru_dict.word2article, fallback_lang, {"книга": ["STEM"]})
+
+        assert find_word_dict("книгами", "Хакасский/Русский") == "EXACT"
+
+    def test_deduplicates_stem_results_from_both_languages(self):
+        text = find_word_dict("книгами", "Хакасский/Русский")
+        assert text.count("<b>книга</b>") == 1
+        assert "Точного совпадения нет" in text
 
     def test_language_filter_is_respected(self):
         assert find_word_dict("дерево", "Хакасский") == "Слово не найдено в словаре"

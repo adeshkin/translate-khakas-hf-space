@@ -13,7 +13,7 @@ class TestTextToSpeech:
         assert data.dtype == np.int16
 
     def test_passes_normalized_text_and_model_speaker(self):
-        tts.model.calls.clear()
+        tts.get_model().calls.clear()
 
         text_to_speech("  Пӱӱн Чылығ Кӱн  ", "Карина")
 
@@ -54,3 +54,45 @@ class TestRandomTextToSpeech:
             assert 0 < len(text) <= MAX_TEXT_LEN
             assert audio is not None
             assert audio[0] == SAMPLE_RATE
+
+
+def test_synthesis_buttons_share_one_queue():
+    handlers = [f for f in tts.tts_interface.fns.values()
+                if f.fn in (text_to_speech, random_text_to_speech)]
+    assert len(handlers) == 2
+    assert {f.concurrency_id for f in handlers} == {"tts"}
+    assert all(f.concurrency_limit == 1 for f in handlers)
+
+
+def test_failed_model_load_is_retried_after_cooldown(monkeypatch):
+    import gradio as gr
+
+    monkeypatch.setattr(tts, "model", None)
+    monkeypatch.setattr(tts, "_retry_after", 0)
+    clock = [100.0]
+    monkeypatch.setattr(tts, "monotonic", lambda: clock[0])
+    calls = []
+    download = tts.hf_hub_download
+
+    def fail_download(**kwargs):
+        calls.append(kwargs)
+        raise OSError("offline")
+
+    monkeypatch.setattr(tts, "hf_hub_download", fail_download)
+    for _ in range(2):
+        with pytest.raises(gr.Error, match="временно недоступна"):
+            text_to_speech("сӧс", "Сибдей")
+    assert len(calls) == 1
+    assert tts.model is None
+    clock[0] += 61
+    monkeypatch.setattr(tts, "hf_hub_download", download)
+    assert text_to_speech("сӧс", "Сибдей") is not None
+
+
+def test_invalid_input_does_not_load_model(monkeypatch):
+    def unexpected_load():
+        pytest.fail("Invalid input must not load the model")
+
+    monkeypatch.setattr(tts, "get_model", unexpected_load)
+    with pytest.warns(UserWarning):
+        assert text_to_speech("", "Сибдей") is None
