@@ -48,8 +48,8 @@ so you can create the same thing for your own low-resource language.
 - [Step 9 — CI: GitHub → Hugging Face sync](#step-9--ci-github--hugging-face-sync)
 - [Run locally](#run-locally)
 - [Performance notes](#performance-notes)
-- [TODO](#todo)
 - [Project links](#project-links)
+- [TODO](#todo)
 
 ---
 
@@ -458,46 +458,6 @@ Worth keeping in mind if you adapt this for your own language:
 | Rebuilding key lists for "random word" | Materialise them once at startup |
 | Regex cost per request | Compile every pattern at module level |
 
-## TODO
-
-Planned work on the app and the data — in rough order of usefulness.
-
-- [ ] **Decide whether to switch the TTS to the stressed Silero model.** The Space runs
-      [`adeshkin/silero-models-v5-cis-base-nostress`](https://huggingface.co/adeshkin/silero-models-v5-cis-base-nostress),
-      a model trained without stress marks. The `v5-cis-base` variant expects stress
-      (`+`) in the input, and a Khakas stress dictionary is available — so it could be
-      wired in as: word → stress dictionary → stressed text → model. Worth measuring
-      first: does the stressed model actually sound better on Khakas, and what happens on
-      out-of-dictionary word forms (Khakas suffixes move the stress)? If the fallback for
-      unknown forms is bad, staying on the nostress model is the safer choice.
-- [ ] **Show the source of every corpus example.** The Examples tab prints a sentence pair
-      with no attribution. Add a `source` column (work title, author, year) to
-      [`adeshkin/khakas-russian-parallel-corpus`](https://huggingface.co/datasets/adeshkin/khakas-russian-parallel-corpus),
-      carry it into the FTS5 table in [`corpus.py`](corpus.py) (an extra unindexed column
-      via `UNINDEXED`, so it does not affect matching) and render it under each example.
-- [ ] **Add a Khakas monolingual corpus.** Today only the parallel corpus is searchable, so
-      any Khakas sentence without a Russian translation is invisible. Publish a
-      Khakas-only sentence dataset and search it alongside the parallel one — this widens
-      example coverage a lot for rare words.
-- [ ] **Document the source of the dictionary.** The README and the Links tab point to
-      [`adeshkin/khakas-russian-dict`](https://huggingface.co/datasets/adeshkin/khakas-russian-dict)
-      but never say *which* dictionary it is. Name the edition (title, compilers,
-      publisher, year), state the licence/permission to republish, and repeat it in the
-      dataset card and on the Links tab.
-- [x] **Public daily action counters per tab.** Dictionary and corpus count Find and
-      Random word clicks; TTS counts Speak and Random text clicks; Links counts clicks
-      on its listed links (opened in a new tab). Each tab displays only its own total
-      for all visitors, refreshed every 30 seconds and immediately after their own click.
-      These are click counts, including empty inputs and failed actions, not completed
-      searches or successful synthesis counts. SQLite shares totals across processes
-      using the same file and preserves them across process restarts. The displayed day
-      follows Abakan (`Asia/Krasnoyarsk`, UTC+7); old days are removed on the next click.
-      The default file is `/data/translatekhak-usage.sqlite3` when `/data` exists,
-      otherwise `translatekhak-usage.sqlite3` in the system temporary directory.
-      Set `DAILY_USAGE_DB` to an existing writable persistent directory's file path
-      to preserve counts across container replacements. Temporary storage does not
-      survive container replacement; no individual click history or user data is stored.
-
 ## Project links
 
 ### Data
@@ -519,6 +479,118 @@ Planned work on the app and the data — in rough order of usefulness.
 - 👥 [VKontakte community](https://vk.ru/translate_khakas) — project news and updates
 - ✈️ [Telegram channel](https://t.me/translate_khakas) — technical news and updates
 - 🐙 [GitHub repository](https://github.com/adeshkin/translate-khakas-hf-space) — project source code
+
+## TODO
+
+Все задачи ниже запланированы. Идентификаторы P сохранены для ссылок на задачи;
+выполненные задачи отмечаются в чекбоксах.
+
+### Голос и синтез речи
+
+#### P1 · Сравнить Silero с ударениями и без них
+
+- [ ] Сравнить качество синтеза и выбрать модель.
+- **Сейчас:** используется
+  [`adeshkin/silero-models-v5-cis-base-nostress`](https://huggingface.co/adeshkin/silero-models-v5-cis-base-nostress),
+  обученная на текстах без знаков ударения.
+- **Что проверить:** сравнить её с `v5-cis-base`, ожидающей знак ударения `+`.
+  Для модели с ударениями использовать цепочку «слово → словарь ударений →
+  текст с ударениями → модель».
+- **Критерий выбора:** перейти на модель с ударениями, если она лучше звучит
+  на хакасском и приемлемо обрабатывает словоформы, отсутствующие в словаре.
+  Если хакасские суффиксы делают обработку таких словоформ ненадёжной,
+  оставить модель без ударений.
+
+#### P2 · Ограничить источник случайных текстов
+
+- [ ] Для действия «Случайный текст» брать предложения только из
+  [`adeshkin/kjh-asr-sents`](https://huggingface.co/datasets/adeshkin/kjh-asr-sents).
+
+#### P14 · Опубликовать хакасские модели Silero
+
+- [ ] Опубликовать хакасские модели синтеза речи Silero на Hugging Face
+  и добавить их в коллекцию
+  [`adeshkin/khakas-tts`](https://huggingface.co/collections/adeshkin/khakas-tts).
+
+### Словарь и примеры
+
+#### P3 · Подключить дополнительные словари
+
+- [ ] Добавить в поиск следующие наборы данных:
+  - [`adeshkin/khakas-explanatory-dict`](https://huggingface.co/datasets/adeshkin/khakas-explanatory-dict);
+  - [`adeshkin/russian-khakas-literary-dict`](https://huggingface.co/datasets/adeshkin/russian-khakas-literary-dict);
+  - [`adeshkin/khakas-towns-villages`](https://huggingface.co/datasets/adeshkin/khakas-towns-villages).
+
+#### P4 · Показывать источник каждого примера
+
+- [ ] Добавить сведения об источниках в данные, поиск и интерфейс.
+- **Данные:** добавить в
+  [`adeshkin/khakas-russian-parallel-corpus`](https://huggingface.co/datasets/adeshkin/khakas-russian-parallel-corpus)
+  столбец `source` с названием произведения, автором и годом.
+- **Поиск:** добавить `source` в таблицу FTS5 в `corpus.py` хакасского приложения
+  (не этого репозитория) как неиндексируемый столбец (`UNINDEXED`), чтобы сведения
+  об источнике не влияли на результаты поиска.
+- **Интерфейс:** выводить источник под каждым примером на вкладке «Примеры».
+
+#### P5 · Подключить дополнительные корпуса примеров
+
+- [ ] Добавить на вкладку «Примеры» данные из следующих наборов:
+  - [`adeshkin/khakas-monolingual-corpus`](https://huggingface.co/datasets/adeshkin/khakas-monolingual-corpus);
+  - [`adeshkin/russian-khakas-base-phrases`](https://huggingface.co/datasets/adeshkin/russian-khakas-base-phrases);
+  - [`adeshkin/facebook-bouquet-russian-khakas`](https://huggingface.co/datasets/adeshkin/facebook-bouquet-russian-khakas);
+  - [`adeshkin/yandex-russian-khakas-test-benchmark`](https://huggingface.co/datasets/adeshkin/yandex-russian-khakas-test-benchmark);
+  - [`adeshkin/google-smol-en-ru-kjh`](https://huggingface.co/datasets/adeshkin/google-smol-en-ru-kjh).
+
+#### P6 · Разработать ранжирование словарных статей и примеров
+
+- [ ] Настроить ранжирование результатов из источников с разной структурой,
+  качеством, полнотой и языковым направлением.
+- **Учесть:** точные и частичные совпадения, надёжность источника, языковое
+  направление, удаление повторов и разнообразие результатов. Результаты
+  из небольших наборов данных не должны теряться среди результатов из крупных.
+- **Проверка:** сравнить выдачу до и после изменений на наборе показательных
+  запросов.
+
+### Надёжность и разработка
+
+#### P15 · Настроить проверки кода и файлов
+
+- [ ] Настроить `pre-commit` и Ruff; определить порядок запуска тестов.
+- **Перед коммитом:** проверять синтаксис, стиль и форматирование Python-кода,
+  лишние пробелы, завершающие переводы строк, корректность YAML и маркеры
+  конфликтов слияния.
+- **Тесты:** выбрать место запуска `pytest` — перед `git push` или в CI —
+  так, чтобы обычные коммиты выполнялись быстро.
+- **Документация:** описать установку и ручной запуск проверок в README.
+
+#### P20 · Оценить интеграцию FastAPI и Gradio с загрузкой ресурсов через lifespan
+
+- [ ] Попробовать объединить FastAPI и Gradio в одном приложении
+  и оценить пригодность этого подхода для проекта.
+- **Ресурсы:** перенести загрузку моделей и наборов данных в механизм `lifespan`
+  FastAPI, чтобы управлять их инициализацией и освобождением в одном месте.
+
+### Исследование интерфейса
+
+#### P16 · Изучить интерфейсы других языковых проектов
+
+- [ ] Изучить [`suzlek.antat.ru`](https://suzlek.antat.ru/indexR.php)
+  и [`sakhatyla.ru`](https://sakhatyla.ru/); выбрать полезные функции
+  и интерфейсные решения для адаптации на этом сайте.
+
+#### P17 · Собрать и отобрать идеи развития сайта
+
+- [ ] С помощью нейросети составить список улучшений интерфейса,
+  пользовательских сценариев и функций сайта.
+- **Результат:** отобрать идеи для реализации с учётом исследования P16
+  и добавить их в план работ без дублирования существующих задач.
+
+#### P19 · Улучшить отображение сайта в поиске и Telegram
+
+- [ ] Проверить заголовок, описание и изображение сайта в результатах поиска
+  и в превью ссылки в Telegram.
+- **Результат:** исправить некорректное отображение и повторно проверить
+  результат в поиске и Telegram.
 
 ---
 
